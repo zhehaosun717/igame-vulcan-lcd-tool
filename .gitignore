@@ -1,0 +1,18 @@
+# build artifacts
+*.exe
+*.pdb
+*.obj
+bin/
+obj/
+
+# python
+__pycache__/
+*.pyc
+*.pkl
+
+# local / generated data
+integration.json
+settings.json
+*.savi
+screen-volume/
+backups/
