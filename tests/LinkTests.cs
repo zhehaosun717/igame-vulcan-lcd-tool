@@ -25,6 +25,18 @@ namespace GpuLcd {
    s.Apply(E("Interrupt","a","2"),t.AddSeconds(43));Equal("idle",s.Current(t.AddSeconds(43)));
    s.Apply(E("UserPromptSubmit","c"),t);Equal("idle",s.Current(t.AddMinutes(31)));
    s.Apply(E("UserPromptSubmit","d"),t);s.Apply(E("SessionEnd","d"),t);Equal("idle",s.Current(t));
+   // Claude's notifications: prompts wait for the user, the idle reminder ends the turn, others are ignored.
+   Equal("PermissionRequest",LinkState.ClaudeEventName("Notification",""));
+   Equal("PermissionRequest",LinkState.ClaudeEventName("Notification","permission_prompt"));
+   Equal("PermissionRequest",LinkState.ClaudeEventName("Notification","elicitation_dialog"));
+   Equal("Stop",LinkState.ClaudeEventName("Notification","idle_prompt"));
+   Equal("Notification",LinkState.ClaudeEventName("Notification","auth_success"));
+   Equal("PostToolUse",LinkState.ClaudeEventName("PostToolUse","idle_prompt"));
+   // A lost Stop: the idle reminder a minute later closes the turn instead of showing "waiting" for 30 minutes.
+   var lost=new LinkState();
+   var lw=E("UserPromptSubmit","lost","");lw.client="claude";lost.Apply(lw,t);
+   var reminder=E(LinkState.ClaudeEventName("Notification","idle_prompt"),"lost","");reminder.client="claude";lost.Apply(reminder,t.AddSeconds(60));
+   Equal("done",lost.Current(t.AddSeconds(60)));Equal("idle",lost.Current(t.AddSeconds(200)));
    s.Clear();
    var ce=E("UserPromptSubmit","same");ce.client="claude";s.Apply(ce,t);
    s.Apply(E("UserPromptSubmit","same"),t.AddSeconds(1));

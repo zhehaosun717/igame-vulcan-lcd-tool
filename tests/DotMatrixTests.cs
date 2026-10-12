@@ -63,8 +63,12 @@ namespace GpuLcd {
             // Scenes: JSON the panel's validator accepts (no nulls).
             Equal("{\"kind\":\"pixels\",\"frames\":[[]],\"palette\":{}}", Json(DotMatrixScene.For("working", "claude", true)), "night blanks the panel");
             Equal("{\"kind\":\"status\",\"status\":\"idle\"}", Json(DotMatrixScene.For("idle", "codex", false)), "idle scene");
-            Equal("{\"kind\":\"status\",\"status\":\"working\",\"label\":\"Codex\"}", Json(DotMatrixScene.For("working", "codex", false)), "codex keeps panel colours");
-            Equal("{\"kind\":\"status\",\"status\":\"waiting\",\"label\":\"Claude\",\"color\":\"#F0B43C\"}", Json(DotMatrixScene.For("waiting", "claude", false)), "claude waiting amber");
+            Equal("{\"kind\":\"status\",\"status\":\"working\",\"color\":\"#3C82FF\"}", Json(DotMatrixScene.For("working", "codex", false)), "codex working blue, no label");
+            Equal("{\"kind\":\"status\",\"status\":\"waiting\",\"color\":\"#F0B43C\"}", Json(DotMatrixScene.For("waiting", "claude", false)), "claude waiting amber, no label");
+            Equal("#B478FF", DotMatrixScene.For("waiting", "codex", false)["color"], "codex waiting violet");
+            Equal("#3CDCDC", DotMatrixScene.For("done", "codex", false)["color"], "codex done teal");
+            foreach (var state in new[] { "working", "waiting", "done" })
+                True(Json(DotMatrixScene.For(state, "claude", false)) != Json(DotMatrixScene.For(state, "codex", false)), "assistants differ when " + state);
             Equal("#D97757", DotMatrixScene.For("working", "claude", false)["color"], "claude working terracotta");
             Equal("#78C878", DotMatrixScene.For("done", "claude", false)["color"], "claude done green");
             foreach (var state in new[] { "idle", "working", "waiting", "done" })
@@ -111,9 +115,11 @@ namespace GpuLcd {
             Func<string, Dictionary<string, object>> S = text => parse.DeserializeObject(text) as Dictionary<string, object>;
             var claudeWorking = DotMatrixScene.For("working", "claude", false);
             True(DotMatrixScene.Matches(claudeWorking, S(Json(claudeWorking))), "same scene matches");
-            True(DotMatrixScene.Matches(claudeWorking, S("{\"kind\":\"status\",\"status\":\"working\",\"label\":\"Claude\"}")), "colour dropped by an older panel app still matches");
+            True(DotMatrixScene.Matches(claudeWorking, S("{\"kind\":\"status\",\"status\":\"working\"}")), "colour dropped by an older panel app still matches");
+            True(DotMatrixScene.Matches(claudeWorking, S("{\"kind\":\"status\",\"status\":\"working\",\"color\":\"d97757\"}")), "colour case and # do not matter");
             True(!DotMatrixScene.Matches(claudeWorking, S("{\"kind\":\"status\",\"status\":\"thinking\"}")), "another sender's status");
-            True(!DotMatrixScene.Matches(claudeWorking, S("{\"kind\":\"status\",\"status\":\"working\",\"label\":\"Codex\"}")), "other client");
+            True(!DotMatrixScene.Matches(claudeWorking, S(Json(DotMatrixScene.For("working", "codex", false)))), "other client");
+            True(!DotMatrixScene.Matches(claudeWorking, S("{\"kind\":\"status\",\"status\":\"working\",\"label\":\"Claude\",\"color\":\"#D97757\"}")), "a label we did not send");
             True(!DotMatrixScene.Matches(claudeWorking, S("{\"kind\":\"mood\",\"mood\":\"happy\"}")), "an agent's mood");
             True(!DotMatrixScene.Matches(claudeWorking, null), "nothing shown (app restarted)");
             var idle = DotMatrixScene.For("idle", "codex", false);

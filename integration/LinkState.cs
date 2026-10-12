@@ -34,6 +34,16 @@ namespace GpuLcd {
                 p.Closed || p.Turn!=e.turn_id || string.IsNullOrEmpty(e.turn_id))return false;
             Apply(e,now);return true;
         }
+        // Claude Code's Notification hook is not only for permission prompts: "idle_prompt" fires about a minute
+        // after a finished turn. It must not turn that session back into "waiting"; it means the turn is over, which
+        // also closes a session whose Stop event was lost. Other types (e.g. auth_success) are ignored.
+        // Older versions send no type: every notification was a prompt.
+        public static string ClaudeEventName(string hookEventName, string notificationType) {
+            if (hookEventName != "Notification") return hookEventName;
+            if (string.IsNullOrEmpty(notificationType) || notificationType == "permission_prompt" || notificationType == "elicitation_dialog")
+                return "PermissionRequest";
+            return notificationType == "idle_prompt" ? "Stop" : hookEventName;
+        }
         public void Apply(LinkEvent e, DateTime now) {
             if (string.IsNullOrEmpty(e.session_id)) return;
             string client = e.client == "claude" ? "claude" : "codex";

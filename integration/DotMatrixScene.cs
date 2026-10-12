@@ -3,10 +3,14 @@ using System.Collections.Generic;
 
 namespace GpuLcd {
     // Pure mapping from the merged assistant state to a Dot Matrix Studio scene: no I/O.
-    // Claude Code keeps the colours of its LCD animations and SignalRGB effect; Codex uses the panel's own status colours.
+    // The panel tells the assistants apart by colour alone (no text label): Claude Code keeps the warm colours of
+    // its LCD animations and SignalRGB effect, Codex gets a cool set, so the two differ in every state.
     public static class DotMatrixScene {
         static readonly Dictionary<string, string> ClaudeColors = new Dictionary<string, string> {
             { "working", "#D97757" }, { "waiting", "#F0B43C" }, { "done", "#78C878" }
+        };
+        static readonly Dictionary<string, string> CodexColors = new Dictionary<string, string> {
+            { "working", "#3C82FF" }, { "waiting", "#B478FF" }, { "done", "#3CDCDC" }
         };
 
         // Identifies what is on the panel, so a scene is only sent when it changes.
@@ -22,16 +26,12 @@ namespace GpuLcd {
                 { "kind", "pixels" }, { "frames", new[] { new string[0] } }, { "palette", new Dictionary<string, string>() }
             };
             if (!IsActive(state)) return new Dictionary<string, object> { { "kind", "status" }, { "status", "idle" } };
-            bool claude = client == "claude";
-            var scene = new Dictionary<string, object> {
-                { "kind", "status" }, { "status", state }, { "label", claude ? "Claude" : "Codex" }
-            };
-            if (claude) scene["color"] = ClaudeColors[state];
-            return scene;
+            var colors = client == "claude" ? ClaudeColors : CodexColors;
+            return new Dictionary<string, object> { { "kind", "status" }, { "status", state }, { "color", colors[state] } };
         }
 
-        // Whether the panel still shows the scene we sent. Colour is not compared: older Dot Matrix Studio
-        // versions drop it, which would otherwise look like a mismatch forever.
+        // Whether the panel still shows the scene we sent. A missing colour still matches: older Dot Matrix Studio
+        // versions drop it, which would otherwise look like a mismatch forever. A different colour is the other assistant.
         public static bool Matches(Dictionary<string, object> sent, Dictionary<string, object> shown) {
             if (shown == null) return false;
             foreach (var field in new[] { "kind", "status", "label" }) {
@@ -39,6 +39,10 @@ namespace GpuLcd {
                 bool hasA = sent.TryGetValue(field, out a), hasB = shown.TryGetValue(field, out b);
                 if (hasA != hasB || (hasA && Convert.ToString(a) != Convert.ToString(b))) return false;
             }
+            object sentColor, shownColor;
+            if (sent.TryGetValue("color", out sentColor) && shown.TryGetValue("color", out shownColor) &&
+                !string.Equals(Convert.ToString(sentColor).TrimStart('#'), Convert.ToString(shownColor).TrimStart('#'), StringComparison.OrdinalIgnoreCase))
+                return false;
             if (Convert.ToString(sent["kind"]) != "pixels") return true;
             // Our only pixels scene is the blank panel; an agent's own pixel art is not it.
             object frames;
