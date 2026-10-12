@@ -39,5 +39,6 @@ Copy-Item $out $t -Force; Copy-Item (Join-Path $root 'lib\*.dll') $t -Force
 Restore-Settings
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
 $resultFile = Join-Path $root 'integration\web-bridge-test-result.txt'
+$env:GPULCD_TEST_GIF = Join-Path $root 'anims\ccask.gif'   # 测试从 %TEMP% 运行，找不到仓库里的样图，所以显式告诉它
 try { & (Join-Path $t 'WebBridgeTest.exe') 2>&1 | Tee-Object $resultFile } finally { Restore-Settings; Restore-Run }
 "exit=$LASTEXITCODE"

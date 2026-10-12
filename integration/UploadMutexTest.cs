@@ -17,6 +17,13 @@ namespace GpuLcd {
   static object C(string n,params object[] a){return typeof(MainForm).GetMethod(n,BF).Invoke(f,a);}
   static string Cmd(string line){return (string)C("HandleCommand",line);}
   static void Check(string what,bool ok,string detail){Console.WriteLine((ok?"PASS  ":"FAIL  ")+what+"  -> "+detail);if(!ok)fail++;}
+  // 上传用的样图：环境变量 GPULCD_TEST_GIF，否则从当前目录和 exe 所在目录往上找仓库里的 anims\ccask.gif。
+  static string SampleGif(){
+   var env=Environment.GetEnvironmentVariable("GPULCD_TEST_GIF");
+   if(!string.IsNullOrEmpty(env))return env;
+   foreach(var start in new[]{Environment.CurrentDirectory,AppDomain.CurrentDomain.BaseDirectory})
+    for(var dir=new DirectoryInfo(start);dir!=null;dir=dir.Parent){var p=Path.Combine(dir.FullName,"anims","ccask.gif");if(File.Exists(p))return p;}
+   throw new FileNotFoundException("anims\\ccask.gif not found; set GPULCD_TEST_GIF");}
   static void Pump(int ms){var sw=Stopwatch.StartNew();while(sw.ElapsedMilliseconds<ms){Application.DoEvents();System.Threading.Thread.Sleep(20);}}
   [STAThread] static int Main(){Vendor.Setup();return Run();}
   [MethodImpl(MethodImplOptions.NoInlining)] static int Run(){
@@ -37,7 +44,7 @@ namespace GpuLcd {
     Check("baseline: playing set",(string)G("playing")=="img2.savi",(string)G("playing"));
     string before=(string)G("playing");
 
-    ((TextBox)G("txtFile")).Text=@"C:\Users\Sun_Local\tools\GpuLcd\anims\ccask.gif";
+    ((TextBox)G("txtFile")).Text=SampleGif();
     ((TextBox)G("txtName")).Text="ccask.savi";
     ((ComboBox)G("cmbFit")).SelectedIndex=2;
     C("DoUpload");

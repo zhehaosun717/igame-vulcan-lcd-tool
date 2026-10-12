@@ -18,6 +18,13 @@ namespace GpuLcd {
    var m=typeof(MainForm).GetMethod("WebCall",BF);var args=new object[]{cmd,a,null};
    object r=m.Invoke(f,args);err=(string)args[2];return r;}
   static Dictionary<string,object> D(params object[] kv){var d=new Dictionary<string,object>();for(int i=0;i<kv.Length;i+=2)d[(string)kv[i]]=kv[i+1];return d;}
+  // 上传用的样图：环境变量 GPULCD_TEST_GIF（run-webbridge-test.ps1 会设），否则从当前目录和 exe 所在目录往上找 anims\ccask.gif。
+  static string SampleGif(){
+   var env=Environment.GetEnvironmentVariable("GPULCD_TEST_GIF");
+   if(!string.IsNullOrEmpty(env))return env;
+   foreach(var start in new[]{Environment.CurrentDirectory,AppDomain.CurrentDomain.BaseDirectory})
+    for(var dir=new DirectoryInfo(start);dir!=null;dir=dir.Parent){var p=Path.Combine(dir.FullName,"anims","ccask.gif");if(File.Exists(p))return p;}
+   throw new FileNotFoundException("anims\\ccask.gif not found; set GPULCD_TEST_GIF");}
   static string J(object o){return new System.Web.Script.Serialization.JavaScriptSerializer().Serialize(o);}
   [STAThread] static int Main(){Vendor.Setup();return Run();}
   [MethodImpl(MethodImplOptions.NoInlining)] static int Run(){
@@ -78,7 +85,7 @@ namespace GpuLcd {
     Check("playing == current after playFile",(string)G("playing")==cur,(string)G("playing"));
     // ================= 阶段 2：上传命令 =================
     Console.WriteLine("---- upload commands ----");
-    string gif=@"C:\Users\Sun_Local\tools\GpuLcd\anims\ccask.gif";
+    string gif=SampleGif();
     var sp=Call("getSpace",null,out err);Console.WriteLine("getSpace = "+J(sp));
     Check("getSpace known with sane numbers",err==null&&J(sp).Contains("\"known\":true")&&!J(sp).Contains("\"total\":0"),J(sp));
     Func<string,Dictionary<string,object>> U=(name)=>D("token",(string)G("uploadToken"),"name",name,"fit","stretch","mode","movie");
