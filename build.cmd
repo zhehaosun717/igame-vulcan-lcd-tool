@@ -14,6 +14,6 @@ if "%RES%"=="" echo WARNING: ui\dist not found - building WITHOUT the embedded n
   /r:"%IG%\iGameAPI.LCD.CSharp.dll" /r:"%IG%\iGameAPI.NVAPI.CSharp.dll" /r:"%IG%\iGameAPI.Contracts.dll" /r:"%IG%\iGameCenter.Contracts.dll" ^
   /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll /r:System.Management.dll /r:System.Web.dll /r:System.IO.Compression.dll ^
   /r:"%~dp0lib\Microsoft.Web.WebView2.Core.dll" /r:"%~dp0lib\Microsoft.Web.WebView2.WinForms.dll" ^
-  "%~dp0VendorRuntime.cs" "%~dp0AssemblyInfo.cs" "%~dp0GpuLcd.cs" "%~dp0Storage.cs" "%~dp0Integrations.cs" "%~dp0SignalBridge.cs" "%~dp0Widgets.cs" "%~dp0DisplayJobs.cs" "%~dp0NightMode.cs" "%~dp0WebUi.cs" "%~dp0integration\LinkState.cs" "%~dp0integration\CompletionReader.cs" "%~dp0integration\DotMatrixScene.cs" "%~dp0integration\DotMatrixClient.cs" "%~dp0DotMatrixBridge.cs"
+  "%~dp0VendorRuntime.cs" "%~dp0AssemblyInfo.cs" "%~dp0GpuLcd.cs" "%~dp0Storage.cs" "%~dp0Integrations.cs" "%~dp0SignalBridge.cs" "%~dp0Widgets.cs" "%~dp0DisplayJobs.cs" "%~dp0NightMode.cs" "%~dp0WebUi.cs" "%~dp0integration\LinkState.cs" "%~dp0integration\CompletionReader.cs" "%~dp0integration\DotMatrixScene.cs" "%~dp0integration\DotMatrixClient.cs" "%~dp0integration\EventPipe.cs" "%~dp0DotMatrixBridge.cs"
 if errorlevel 1 exit /b 1
 copy /y "%~dp0lib\*.dll" "%~dp0" >nul

@@ -119,7 +119,7 @@ namespace GpuLcd {
             var th = new Thread(() => {
                 while (!IsDisposed) {
                     try {
-                        using (var p = new NamedPipeServerStream("GpuLcdEvents", PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous)) {
+                        using (var p = EventPipe.Create("GpuLcdEvents")) {   // 低完整性的钩子也能写入（见 EventPipe.cs）
                             p.WaitForConnection();
                             var r = new StreamReader(p, Encoding.UTF8);
                             var read = r.ReadLineAsync();
