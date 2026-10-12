@@ -27,8 +27,8 @@ namespace GpuLcd {
                 var e = new LinkEvent { hook_event_name = get("hook_event_name"),
                     session_id = get("session_id"), turn_id = get("turn_id"),
                     transcript_path = get("transcript_path") };
-                e.client = args.Length>0 && args[0]=="asst" ? "asst" : "codex";
-                if(e.client=="asst" && e.hook_event_name=="Notification")e.hook_event_name="PermissionRequest";
+                e.client = args.Length>0 && args[0]=="claude" ? "claude" : "codex";
+                if(e.client=="claude" && e.hook_event_name=="Notification")e.hook_event_name="PermissionRequest";
                 if (e.session_id.Length > 200 || e.turn_id.Length > 200) return 0;
                 using (var p = new NamedPipeClientStream(".", "GpuLcdEvents", PipeDirection.InOut)) {
                     p.Connect(400);

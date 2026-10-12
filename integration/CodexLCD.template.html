@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html><head><title>CodexLCD</title>
-<meta description="Codex / 助手B 独立状态配色，助手B 饱和度增强；彩虹猫默认灯效。"/>
+<meta description="Codex / Claude 独立状态配色，Claude 饱和度增强；彩虹猫默认灯效。"/>
 <meta publisher="Local GpuLcd Tool"/>
 <meta property="previewState" label="Preview / LCD test" type="combobox" values="Auto,Working,Waiting,Done,Idle" default="Auto"/>
 <meta property="intensity" label="Brightness" type="number" min="5" max="100" default="55"/>
@@ -35,7 +35,7 @@ function onCanvasApiEvent(e){
   console.log("GpuLcdBlackout="+(blackout?"on":"off")+";ts="+Date.now());
   return;
  }
- var incomingClient="codex",scoped=/^(asst|codex)@(working|waiting|done)$/.exec(name);
+ var incomingClient="codex",scoped=/^(claude|codex)@(working|waiting|done)$/.exec(name);
  if(scoped){incomingClient=scoped[1];name=scoped[2];}
  var sync=/^idle@(\d{12,14})@(-?\d{1,4})(?:@(\d{2,3}(?:\.\d{1,2})?))?$/.exec(name);
  if(sync){
@@ -48,7 +48,7 @@ function onCanvasApiEvent(e){
   if(name!==state || incomingClient!==taskClient)stateStarted=Date.now();
   taskClient=incomingClient;
   state=name;updated=Date.now();
-  console.log("GpuLcdState="+state+";seq="+(++sequence)+(taskClient==="asst"?";client=asst":""));
+  console.log("GpuLcdState="+state+";seq="+(++sequence)+(taskClient==="claude"?";client=claude":""));
  }
 }
 function poll(now){
@@ -70,12 +70,12 @@ function update(){
  var now=Date.now();poll(now);if(now-updated>45000)state="idle";
  var colors={working:[50,157,245],waiting:[242,169,42],done:[34,207,92],idle:[40,220,196]};
  var shown=now<manualUntil?manualState:state;
- var is助手B=now>=manualUntil && taskClient==="asst" && shown!=="idle";
- if(is助手B)colors={working:[217,99,61],waiting:[240,170,31],done:[96,200,96]};
+ var isClaude=now>=manualUntil && taskClient==="claude" && shown!=="idle";
+ if(isClaude)colors={working:[217,99,61],waiting:[240,170,31],done:[96,200,96]};
  if(shown!==lastShown){if(shown==="idle" && !idleSynced)idleEpoch=now;lastShown=shown;}
  var color=colors[shown],strength=(typeof intensity==="number"?intensity:55)/100;
  var pulse=shown==="working"?.65+.35*Math.sin(now/1100):shown==="waiting"?.65+.25*Math.sin(now/700):shown==="done"?.75+.25*Math.cos(now/500):.45;
- if(is助手B){
+ if(isClaude){
   var age=Math.max(0,now-stateStarted);
   pulse=shown==="working"?.75+.25*Math.sin(age*Math.PI/1260):shown==="waiting"?.35+.65*(.5+.5*Math.sin(age*Math.PI/960)):.55+.45*Math.min(1,age/1000);
  }
@@ -91,7 +91,7 @@ function update(){
  }
  if(shown==="working"){
   var x=(now/18)%440-60,g=ctx.createLinearGradient(x-60,0,x+60,0);
-  var glow=is助手B?"217,99,61":"80,180,255";
+  var glow=isClaude?"217,99,61":"80,180,255";
   g.addColorStop(0,"rgba("+glow+",0)");g.addColorStop(.5,"rgba("+glow+",0.12)");g.addColorStop(1,"rgba("+glow+",0)");
   ctx.fillStyle=g;ctx.fillRect(x-60,0,120,200);
  }

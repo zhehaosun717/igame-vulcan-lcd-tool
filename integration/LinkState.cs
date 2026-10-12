@@ -32,7 +32,7 @@ namespace GpuLcd {
         }
         public void Apply(LinkEvent e, DateTime now) {
             if (string.IsNullOrEmpty(e.session_id)) return;
-            string client = e.client == "asst" ? "asst" : "codex";
+            string client = e.client == "claude" ? "claude" : "codex";
             string key = client + ":" + e.session_id;
             Entry p;
             sessions.TryGetValue(key, out p);
@@ -59,7 +59,7 @@ namespace GpuLcd {
                 sessions.Remove(k);
             foreach(string state in new[]{"waiting","working","done"}) {
                 var entry = sessions.Values.Where(x => x.State == state &&
-                    (state != "done" || (now - x.Updated).TotalSeconds < (x.Client=="asst" ? 120 : 30)))
+                    (state != "done" || (now - x.Updated).TotalSeconds < (x.Client=="claude" ? 120 : 30)))
                     .OrderByDescending(x=>x.Updated).FirstOrDefault();
                 if(entry!=null){CurrentClient=entry.Client;return state;}
             }

@@ -85,6 +85,7 @@ namespace GpuLcd {
    try{
     if(File.Exists(StorageOps.Flag))return "ERR 屏幕处于存储维护模式";
     if(!connected)return "ERR 屏幕未连接";
+    if(uploading)return "ERR 上传进行中";
     if(json.Length>2048)return "ERR 请求过长";
     var r=new JavaScriptSerializer().Deserialize<DisplayRequest>(json);
     if(r==null)return "ERR 请求为空";
@@ -99,6 +100,7 @@ namespace GpuLcd {
    if(File.Exists(StorageOps.Flag) || !connected){
     displayJobs.Apply(new DisplayRequest{action="clear"},DateTime.UtcNow);widgetOwnsScreen=false;return;
    }
+   if(uploading)return;   // 上传期间挂件不写串口，传完后下一个 tick 自动补发
    if(frame==null){if(widgetOwnsScreen)RestoreWidget();return;}
    if(!widgetOwnsScreen){
     widgetSavedMovie=playing;widgetSavedText=(LCD3CustomTextModel)dev.L3.GetType().GetProperty("CustomTextModel").GetValue(dev.L3,null);

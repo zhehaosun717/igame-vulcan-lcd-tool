@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
@@ -12,7 +12,7 @@ using System.Windows.Forms;
 
 namespace GpuLcd {
     class LinkConfig {
-        public bool Codex = true, AsstB = true, Signal = false;
+        public bool Codex = true, Claude = true, Signal = false;
         public int IdleOffsetMs = 0;
         public decimal IdleRatePercent = 100m;
         public bool NightMode = false;
@@ -23,6 +23,7 @@ namespace GpuLcd {
         bool completionBusy;
         readonly System.Windows.Forms.Timer linkTimer = new System.Windows.Forms.Timer { Interval = 1000 };
         LinkConfig linkCfg = new LinkConfig();
+        CheckBox chkCodex, chkClaude, chkSignal; NumericUpDown nudOffset, nudRate;   // 新界面通过这些控件驱动原有处理逻辑
         Label linkStatus = new Label(), signalStatus = new Label();
         string linkShown = "idle", linkApplied = "idle", linkAppliedClient = "codex", signalApplied = "";
         string demoState = ""; DateTime demoUntil, lastLcdTry, lastSignalTry;
@@ -37,27 +38,27 @@ namespace GpuLcd {
             var flow = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown,
                 WrapContents = false, AutoScroll = true, Padding = new Padding(16) };
             flow.Controls.Add(new Label { AutoSize = true, MaximumSize = new Size(500,0),
-                Text = "Codex：蓝色工作 / 橙色等待 / 翠绿呼吸完成\r\n助手 B：陶橙工作 / 琥珀呼吸等待 / 草绿渐亮完成\r\nCodex 结束提示 30 秒，助手 B 120 秒，然后恢复默认动画。", Margin = new Padding(0,0,0,14) });
+                Text = "Codex：蓝色工作 / 橙色等待 / 翠绿呼吸完成\r\nClaude Code：陶橙工作 / 琥珀呼吸等待 / 草绿渐亮完成\r\nCodex 结束提示 30 秒，Claude Code 120 秒，然后恢复默认动画。", Margin = new Padding(0,0,0,14) });
             var codex = new CheckBox { Text = "接收 Codex 任务事件", AutoSize = true, Checked = linkCfg.Codex };
             codex.CheckedChanged += (s,e) => { linkCfg.Codex = codex.Checked; if (!codex.Checked) linkState.ClearClient("codex"); SaveLinks(); TickLinks(); };
-            flow.Controls.Add(codex);
-            var asst = new CheckBox { Text = "接收 助手 B 任务事件", AutoSize = true, Checked = linkCfg.AsstB };
-            asst.CheckedChanged += (s,e) => { linkCfg.AsstB=asst.Checked; if(!asst.Checked)linkState.ClearClient("asst");SaveLinks();TickLinks(); };
-            flow.Controls.Add(asst);
+            chkCodex = codex; flow.Controls.Add(codex);
+            var claude = new CheckBox { Text = "接收 Claude Code 任务事件", AutoSize = true, Checked = linkCfg.Claude };
+            claude.CheckedChanged += (s,e) => { linkCfg.Claude=claude.Checked; if(!claude.Checked)linkState.ClearClient("claude");SaveLinks();TickLinks(); };
+            chkClaude = claude; flow.Controls.Add(claude);
             var signal = new CheckBox { Text = "同步到 SignalRGB 灯光", AutoSize = true, Checked = linkCfg.Signal };
             signal.CheckedChanged += (s,e) => { linkCfg.Signal = signal.Checked; signalApplied = ""; SaveLinks(); TickLinks(); };
-            flow.Controls.Add(signal);
+            chkSignal = signal; flow.Controls.Add(signal);
             var offsetRow=new FlowLayoutPanel {AutoSize=true,WrapContents=false,Margin=new Padding(0,8,0,0)};
             offsetRow.Controls.Add(new Label {Text="默认灯效时间偏移（毫秒）",AutoSize=true,Margin=new Padding(0,6,8,0)});
             var offset=new NumericUpDown {Minimum=-5000,Maximum=5000,Increment=50,Width=90,Value=Math.Max(-5000,Math.Min(5000,linkCfg.IdleOffsetMs))};
             offset.ValueChanged+=(s,e)=>{linkCfg.IdleOffsetMs=(int)offset.Value;signalApplied="";SaveLinks();TickLinks();};
-            offsetRow.Controls.Add(offset);flow.Controls.Add(offsetRow);
+            nudOffset = offset; offsetRow.Controls.Add(offset);flow.Controls.Add(offsetRow);
             flow.Controls.Add(new Label {Text="灯光慢了填正数，快了填负数；1000 毫秒 = 1 秒。",AutoSize=true,MaximumSize=new Size(500,0)});
             var rateRow=new FlowLayoutPanel {AutoSize=true,WrapContents=false,Margin=new Padding(0,8,0,0)};
             rateRow.Controls.Add(new Label {Text="灯效播放速度（%）",AutoSize=true,Margin=new Padding(0,6,8,0)});
             var rate=new NumericUpDown {Minimum=95,Maximum=105,Increment=.01m,DecimalPlaces=2,Width=100,Value=Math.Max(95m,Math.Min(105m,linkCfg.IdleRatePercent))};
             rate.ValueChanged+=(s,e)=>{linkCfg.IdleRatePercent=rate.Value;signalApplied="";SaveLinks();TickLinks();};
-            rateRow.Controls.Add(rate);flow.Controls.Add(rateRow);
+            nudRate = rate; rateRow.Controls.Add(rate);flow.Controls.Add(rateRow);
             flow.Controls.Add(new Label {Text="100% 为原速；越跑越快调低，越跑越慢调高。\r\n每步 0.01%；调整后点下方按钮，重新对齐起点。",AutoSize=true,MaximumSize=new Size(500,0)});
             var sync=new Button {Text="重播默认动画并对齐（预览 30 秒）",AutoSize=true,MinimumSize=new Size(280,34),Margin=new Padding(0,8,0,8)};
             sync.Click+=(s,e)=>Log(PreviewIdleSync());flow.Controls.Add(sync);
@@ -90,11 +91,11 @@ namespace GpuLcd {
             tab.Controls.Add(flow);
             return tab;
         }
-        string LegacyAsstB(string name) {
-            if (!linkCfg.AsstB) return "OK 助手 B 联动已关闭";
-            string evt=name=="abwork.savi" ? "UserPromptSubmit" : name=="abask.savi" ? "PermissionRequest" : "Stop";
-            linkState.Apply(new LinkEvent {client="asst",session_id="legacy",turn_id="legacy",hook_event_name=evt},DateTime.UtcNow);
-            TickLinks(); return "OK 助手 B 事件已接收";
+        string LegacyClaude(string name) {
+            if (!linkCfg.Claude) return "OK Claude Code 联动已关闭";
+            string evt=name=="ccwork.savi" ? "UserPromptSubmit" : name=="ccask.savi" ? "PermissionRequest" : "Stop";
+            linkState.Apply(new LinkEvent {client="claude",session_id="legacy",turn_id="legacy",hook_event_name=evt},DateTime.UtcNow);
+            TickLinks(); return "OK Claude Code 事件已接收";
         }
         void SaveLinks() {
             try { Directory.CreateDirectory(Paths.Data); File.WriteAllText(LinkPath, new JavaScriptSerializer().Serialize(linkCfg)); }
@@ -126,9 +127,9 @@ namespace GpuLcd {
                             var ev = new JavaScriptSerializer().Deserialize<LinkEvent>(line);
                             if (ev == null || ev.session_id == null || ev.session_id.Length > 200) continue;
                             BeginInvoke(new Action(() => {
-                                if (ev.client=="asst" ? linkCfg.AsstB : linkCfg.Codex) {
+                                if (ev.client=="claude" ? linkCfg.Claude : linkCfg.Codex) {
                                     receivedHookEvents++;lastHookEvent=ev.client+"/"+ev.hook_event_name;
-                                    if(ev.client!="asst" && !completions.Track(ev)) {
+                                    if(ev.client!="claude" && !completions.Track(ev)) {
                                         if(ev.hook_event_name=="UserPromptSubmit")Log("未纳入屏幕联动：Codex 会话缺少可跟踪的记录路径 session="+ev.session_id);
                                         return;
                                     }
@@ -162,22 +163,22 @@ namespace GpuLcd {
             string client=now<demoUntil && demoState!="" ? "codex" : linkState.CurrentClient;
             string text=state=="working" ? "正在工作" : state=="waiting" ? "等待授权" : state=="done" ? "本轮结束" : "空闲";
             if (state!=linkShown) { Log("联动状态：" + text); linkShown=state; }
-            if (!linkCfg.NightMode && !widgetOwnsScreen && (state!=linkApplied || client!=linkAppliedClient && state!="idle") && (now-lastLcdTry).TotalSeconds>=2) {
+            if (!linkCfg.NightMode && !widgetOwnsScreen && !uploading && (state!=linkApplied || client!=linkAppliedClient && state!="idle") && (now-lastLcdTry).TotalSeconds>=2) {
                 lastLcdTry=now;
-                string movie=(client=="asst" ? "ab" : "cx") + (state=="working" ? "work.savi" : state=="waiting" ? "ask.savi" : "done.savi");
+                string movie=(client=="claude" ? "cc" : "cx") + (state=="working" ? "work.savi" : state=="waiting" ? "ask.savi" : "done.savi");
                 string result;
                 try { result=File.Exists(StorageOps.Flag) ? "ERR 屏幕处于存储维护模式" : !connected ? "ERR 屏幕未连接" : state=="idle" ? HandleCommand("revert") : PlayExternal(movie,1800); }
                 catch(Exception ex) { result="ERR "+ex.Message; }
                 if(result.StartsWith("OK")) { linkApplied=state; linkAppliedClient=client; }
-                linkStatus.Text="小屏幕："+(state=="idle" ? "" : client=="asst" ? "助手 B / " : "Codex / ")+text+"　"+result;
-            } else if (state==linkApplied) linkStatus.Text="小屏幕："+(state=="idle" ? "" : client=="asst" ? "助手 B / " : "Codex / ")+text;
+                linkStatus.Text="小屏幕："+(state=="idle" ? "" : client=="claude" ? "Claude Code / " : "Codex / ")+text+"　"+result;
+            } else if (state==linkApplied) linkStatus.Text="小屏幕："+(state=="idle" ? "" : client=="claude" ? "Claude Code / " : "Codex / ")+text;
             sharedState=state; signalOn=linkCfg.Signal;
             if(!signalOn && signalBridge!=null){var old=signalBridge;signalBridge=null;old.Dispose();}
             StartSignalBridge();
             if (linkCfg.Signal && (now-signalAckTime).TotalSeconds<4) signalStatus.Text="SignalRGB：灯效脚本已确认 "+signalAckState;
             if (!linkCfg.Signal && !linkCfg.NightMode && !signalWakePending) { signalStatus.Text="SignalRGB：同步未开启"; return; }
             string signalEvent=linkCfg.NightMode?"sleep":signalWakePending?"wake":state=="idle" && playing==cfg.Current && idlePlaybackEpoch>0
-                ? "idle@"+idlePlaybackEpoch.ToString(System.Globalization.CultureInfo.InvariantCulture)+"@"+linkCfg.IdleOffsetMs.ToString(System.Globalization.CultureInfo.InvariantCulture)+"@"+Math.Max(95m,Math.Min(105m,linkCfg.IdleRatePercent)).ToString("0.00",System.Globalization.CultureInfo.InvariantCulture) : client=="asst" && state!="idle" ? "asst@"+state : state;
+                ? "idle@"+idlePlaybackEpoch.ToString(System.Globalization.CultureInfo.InvariantCulture)+"@"+linkCfg.IdleOffsetMs.ToString(System.Globalization.CultureInfo.InvariantCulture)+"@"+Math.Max(95m,Math.Min(105m,linkCfg.IdleRatePercent)).ToString("0.00",System.Globalization.CultureInfo.InvariantCulture) : client=="claude" && state!="idle" ? "claude@"+state : state;
             if (signalBusy || (now-lastSignalTry).TotalSeconds < (signalApplied==signalEvent ? 20 : .1)) return;
             signalBusy=true; lastSignalTry=now;
             Task.Run(() => {

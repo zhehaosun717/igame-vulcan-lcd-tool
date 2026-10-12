@@ -22,14 +22,14 @@ namespace GpuLcd {
    s.Apply(E("UserPromptSubmit","c"),t);Equal("idle",s.Current(t.AddMinutes(31)));
    s.Apply(E("UserPromptSubmit","d"),t);s.Apply(E("SessionEnd","d"),t);Equal("idle",s.Current(t));
    s.Clear();
-   var ce=E("UserPromptSubmit","same");ce.client="asst";s.Apply(ce,t);
+   var ce=E("UserPromptSubmit","same");ce.client="claude";s.Apply(ce,t);
    s.Apply(E("UserPromptSubmit","same"),t.AddSeconds(1));
    Equal("working",s.Current(t.AddSeconds(1)));Equal("codex",s.CurrentClient);
-   var cw=E("PermissionRequest","same");cw.client="asst";s.Apply(cw,t.AddSeconds(2));
-   Equal("waiting",s.Current(t.AddSeconds(2)));Equal("asst",s.CurrentClient);
-   s.ClearClient("asst");Equal("working",s.Current(t.AddSeconds(3)));
+   var cw=E("PermissionRequest","same");cw.client="claude";s.Apply(cw,t.AddSeconds(2));
+   Equal("waiting",s.Current(t.AddSeconds(2)));Equal("claude",s.CurrentClient);
+   s.ClearClient("claude");Equal("working",s.Current(t.AddSeconds(3)));
    s.Clear();
-   var cd=E("Stop","c");cd.client="asst";s.Apply(cd,t);
+   var cd=E("Stop","c");cd.client="claude";s.Apply(cd,t);
    Equal("done",s.Current(t.AddSeconds(119)));Equal("idle",s.Current(t.AddSeconds(121)));
    Console.WriteLine(count+" state-machine assertions passed.");
   }

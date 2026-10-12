@@ -50,7 +50,7 @@ namespace GpuLcd {
             nightLabel.Text=linkCfg.NightMode?"睡眠熄灯已开启；任务通知不会点亮设备。\r\n"+nightScreenResult:"睡觉时一键熄灯，再次点击恢复原设置。";
         }
         string SetNightMode(bool on) {
-            if(!btnUpload.Enabled)return "ERR 上传进行中，请上传结束后再切换熄灯";
+            if(uploading || !btnUpload.Enabled)return "ERR 上传进行中，请上传结束后再切换熄灯";
             if(File.Exists(StorageOps.Flag))return "ERR 屏幕处于存储维护模式";
             linkCfg.NightMode=on;SaveLinks();demoState="";demoUntil=DateTime.MinValue;
             debounce.Stop();revertTimer.Stop();liveTimer.Stop();

@@ -16,3 +16,33 @@ settings.json
 *.savi
 screen-volume/
 backups/
+
+# dependencies and generated bundles
+node_modules/
+dist/
+.nuxt/
+.output/
+lib/
+release/
+*.dll
+*.zip
+*.log
+*.jsonl
+*.bin
+*.asm
+.env
+.env.*
+!.env.example
+
+# private/local inspection output
+fw/
+integration/signal-*.json
+integration/*-contact.png
+integration/*-ui*.png
+integration/backup-path.txt
+integration/*-log.txt
+integration/*-result.txt
+integration/hooks.proposed.json
+integration/claude-hooks.proposed.json
+ui/docs/worker*.txt
+ui/docs/.*snapshot*.txt

@@ -1,0 +1,82 @@
+{
+  "description": "GpuLcd local status notifications. No approval decisions or prompt storage.",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"C:/path/to/igame-vulcan-lcd-tool/integration/GpuLcdHook.exe\"",
+            "timeout": 2
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"C:/path/to/igame-vulcan-lcd-tool/integration/GpuLcdHook.exe\"",
+            "timeout": 2
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"C:/path/to/igame-vulcan-lcd-tool/integration/GpuLcdHook.exe\"",
+            "timeout": 2
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"C:/path/to/igame-vulcan-lcd-tool/integration/GpuLcdHook.exe\"",
+            "timeout": 2
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"C:/path/to/igame-vulcan-lcd-tool/integration/GpuLcdHook.exe\"",
+            "timeout": 2
+          }
+        ]
+      }
+    ],
+    "Interrupt": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"C:/path/to/igame-vulcan-lcd-tool/integration/GpuLcdHook.exe\"",
+            "timeout": 2
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"C:/path/to/igame-vulcan-lcd-tool/integration/GpuLcdHook.exe\"",
+            "timeout": 2
+          }
+        ]
+      }
+    ]
+  }
+}

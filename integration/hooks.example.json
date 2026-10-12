@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"C:/path/to/igame-vulcan-lcd-tool/integration/GpuLcdHook.exe\" asst",
+            "command": "\"C:/path/to/igame-vulcan-lcd-tool/integration/GpuLcdHook.exe\" claude",
             "timeout": 2
           }
         ]
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"C:/path/to/igame-vulcan-lcd-tool/integration/GpuLcdHook.exe\" asst",
+            "command": "\"C:/path/to/igame-vulcan-lcd-tool/integration/GpuLcdHook.exe\" claude",
             "timeout": 2
           }
         ]
@@ -27,7 +27,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"C:/path/to/igame-vulcan-lcd-tool/integration/GpuLcdHook.exe\" asst",
+            "command": "\"C:/path/to/igame-vulcan-lcd-tool/integration/GpuLcdHook.exe\" claude",
             "timeout": 2
           }
         ]
@@ -38,7 +38,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"C:/path/to/igame-vulcan-lcd-tool/integration/GpuLcdHook.exe\" asst",
+            "command": "\"C:/path/to/igame-vulcan-lcd-tool/integration/GpuLcdHook.exe\" claude",
             "timeout": 2
           }
         ]
@@ -49,7 +49,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"C:/path/to/igame-vulcan-lcd-tool/integration/GpuLcdHook.exe\" asst",
+            "command": "\"C:/path/to/igame-vulcan-lcd-tool/integration/GpuLcdHook.exe\" claude",
             "timeout": 2
           }
         ]

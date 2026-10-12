@@ -1,4 +1,4 @@
-﻿// GpuLcd - 直接控制七彩虹 iGame 显卡 LCD 3.0 屏幕，不运行 iGameCenter。
+// GpuLcd - 直接控制七彩虹 iGame 显卡 LCD 3.0 屏幕，不运行 iGameCenter。
 // 调用的是 iGameCenter 安装目录里自带的 iGameAPI.LCD.CSharp.dll（需保留该目录，但不需要打开 iGameCenter）。
 using System;
 using System.Collections.Generic;
@@ -496,6 +496,9 @@ namespace GpuLcd
         Dev dev = new Dev();
         Cfg cfg = Cfg.Load();
         bool connected, loading;
+        // 上传互斥：为 true 期间，任何路径（联动/挂件定时器、管道指令、界面按钮、重新连接、关闭窗口）都不得写串口。
+        // 只在 UI 线程读写；DoUpload 开始时置位，上传线程结束后在 UI 线程里清除。
+        volatile bool uploading;
         Label status = new Label();
         TextBox logBox = new TextBox();
         // 基本
@@ -530,12 +533,15 @@ namespace GpuLcd
         NotifyIcon tray = new NotifyIcon();
         bool reallyExit;
         bool startInTray;
+        // 新界面（WebView2）是主窗口；经典 WinForms 窗口只作为备用（--classic 启动，或托盘菜单调出，或 WebView2 起不来时自动回退）。
+        bool classicUi, shuttingDown;
+        static Icon AppIcon() { try { return Icon.ExtractAssociatedIcon(Application.ExecutablePath) ?? SystemIcons.Application; } catch { return SystemIcons.Application; } }
         public bool Preview;
         TabControl tabs = new TabControl();
         System.Windows.Forms.Timer revertTimer = new System.Windows.Forms.Timer();
         string playing = "";
 
-        // ---------------- 外部指令通道（给 助手 B 钩子等脚本用）
+        // ---------------- 外部指令通道（给 Claude Code 钩子等脚本用）
         // 指令：play <文件> / flash <文件> <秒> / revert / status
         void StartPipe()
         {
@@ -568,10 +574,13 @@ namespace GpuLcd
         {
             var a = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
             if (a.Length == 0) return "ERR 空指令";
+            // 上传期间只放行不碰串口的指令；其余（play/flash/revert/widget/health/night*/idle-sync/Claude 旧指令等）一律拒绝
+            if (uploading && a[0]!="status" && a[0]!="widget-status" && a[0]!="link-status" && a[0]!="quit") return "ERR 上传进行中";
             if(a[0]=="night-status")return NightStatus();
             if(a[0]=="night" && a.Length==2 && (a[1]=="on" || a[1]=="off"))return SetNightMode(a[1]=="on");
             if (a.Length>1 && (a[0]=="play" || a[0]=="flash") &&
-                (a[1]=="abwork.savi" || a[1]=="abask.savi" || a[1]=="abdone.savi")) return LegacyAsstB(a[1]);
+                (a[1]=="ccwork.savi" || a[1]=="ccask.savi" || a[1]=="ccdone.savi")) return LegacyClaude(a[1]);
+            if (a[0]=="webui") { OpenWebUi(); return "OK 新界面已打开"; }
             if (a[0]=="idle-sync") return PreviewIdleSync();
             if (a[0]=="quit") {
                 if(!btnUpload.Enabled)return "ERR 上传进行中";
@@ -601,6 +610,7 @@ namespace GpuLcd
         // 外部指令播放：不改用户的默认动画；同一个文件已经在播就不再发，避免频繁写屏幕
         string PlayExternal(string name, int revertAfterSec)
         {
+            if(uploading)return "ERR 上传进行中";
             if(linkCfg.NightMode)return "ERR 请先恢复灯光和屏幕";
             if (!lstFiles.Items.Contains(name)) return "ERR 屏幕上没有 " + name;
             revertTimer.Stop();
@@ -638,6 +648,11 @@ namespace GpuLcd
         public MainForm(bool inTray)
         {
             startInTray = inTray;
+            var cmdArgs = Environment.GetCommandLineArgs();
+            classicUi = Array.IndexOf(cmdArgs, "--classic") >= 0;
+            // 启动时不让经典窗口闪现：先全透明、不进任务栏，Shown 里再隐藏
+            if (!classicUi && Array.IndexOf(cmdArgs, "--shot") < 0) { Opacity = 0; ShowInTaskbar = false; }
+            Icon = AppIcon();
             SuspendLayout();
             Text = "显卡屏幕控制";
             Font = new Font("Microsoft YaHei UI", 9f);
@@ -665,10 +680,11 @@ namespace GpuLcd
             upTimer.Tick += (s, e) => { try { pb.Value = Math.Max(0, Math.Min(100, dev.UploadPercent)); } catch { } };
             liveTimer.Tick += (s, e) => LiveTick();
 
-            tray.Icon = SystemIcons.Application; tray.Text = "显卡屏幕控制";
+            tray.Icon = Icon; tray.Text = "显卡屏幕控制";
             var menu = new ContextMenuStrip();
             menu.Items.Add("显示窗口", null, (s, e) => ShowMe());
             nightMenu=new ToolStripMenuItem();nightMenu.Click+=(s,e)=>Log(SetNightMode(!linkCfg.NightMode));menu.Items.Add(nightMenu);UpdateNightUi();
+            menu.Items.Add("经典界面（备用）", null, (s, e) => { tray.Visible = false; ShowClassic(); });
             menu.Items.Add("退出", null, (s, e) => { reallyExit = true; Close(); });
             tray.ContextMenuStrip = menu; tray.DoubleClick += (s, e) => ShowMe();
 
@@ -685,6 +701,7 @@ namespace GpuLcd
                 revertTimer.Tick += (s2, e2) =>
                 {
                     revertTimer.Stop();
+                    if (uploading) { revertTimer.Interval = 3000; revertTimer.Start(); return; }   // 上传中不写串口，传完再恢复
                     if (!linkCfg.NightMode && connected && !string.IsNullOrEmpty(cfg.Current) && lstFiles.Items.Contains(cfg.Current) && playing != cfg.Current)
                     {
                         if (Quiet(() => dev.PlayMovie(cfg.Current))) { playing = cfg.Current; MarkMovieStarted(cfg.Current); Log("恢复默认动画 " + cfg.Current); }
@@ -694,7 +711,12 @@ namespace GpuLcd
                 Connect();
                 StartLinks();
                 StartWidgets();
-                if (startInTray) { Hide(); tray.Visible = true; }
+                if (classicUi) { if (startInTray) { Hide(); tray.Visible = true; } }
+                else
+                {
+                    Hide(); Opacity = 1;   // 经典窗口退到后台；新界面是主窗口
+                    if (startInTray) tray.Visible = true; else OpenWebUi();
+                }
             };
             FormClosing += OnClosing;
         }
@@ -732,18 +754,15 @@ namespace GpuLcd
             flow.Controls.Add(note);
             var info = new Label { AutoSize = true, MaximumSize = new Size(510, 0), Text = "开机方案尚未读取" };
             var read = new Button { Text = "读取当前开机方案", AutoSize = true, MinimumSize = new Size(200, 36) };
-            read.Click += (sender, ev) => { if (!connected) return; try { int mode = -1; bool ok = Quiet(() => StorageOps.ReadOpening(dev, out mode)); info.Text = ok ? "当前开机方案：" + mode : "读取失败"; } catch (Exception ex) { Log(ex.Message); } };
+            read.Click += (sender, ev) => { if (!connected || uploading) return; try { int mode = -1; bool ok = Quiet(() => StorageOps.ReadOpening(dev, out mode)); info.Text = ok ? "当前开机方案：" + mode : "读取失败"; } catch (Exception ex) { Log(ex.Message); } };
             flow.Controls.Add(read); flow.Controls.Add(info);
             var preview = new Button { Text = "在小屏幕播放原开机动画", AutoSize = true, MinimumSize = new Size(230, 36) };
-            preview.Click += (sender, ev) => { if (!connected) return; try { chkLive.Checked = false; liveTimer.Stop(); revertTimer.Stop(); dev.Stop(); playing = ""; Log(StorageOps.PreviewOpening(dev) ? "开机动画播放指令已发送；返回图片页可恢复默认动画。" : "开机动画指令发送失败"); } catch (Exception ex) { Log(ex.Message); } };
+            preview.Click += (sender, ev) => { if (!connected || uploading) return; try { chkLive.Checked = false; liveTimer.Stop(); revertTimer.Stop(); dev.Stop(); playing = ""; Log(StorageOps.PreviewOpening(dev) ? "开机动画播放指令已发送；返回图片页可恢复默认动画。" : "开机动画指令发送失败"); } catch (Exception ex) { Log(ex.Message); } };
             flow.Controls.Add(preview);
             var manage = new Button { Text = "打开存储维护…", AutoSize = true, MinimumSize = new Size(230, 36) };
             manage.Click += (sender, ev) => {
-                try {
-                    Directory.CreateDirectory(Paths.Data); File.WriteAllText(StorageOps.Flag, "Storage manager requested");
-                    debounce.Stop(); liveTimer.Stop(); revertTimer.Stop(); dev.Close(); connected = false;
-                    Process.Start(Application.ExecutablePath, "--storage"); reallyExit = true; Close();
-                } catch (Exception ex) { Log(ex.Message); }
+                if (uploading) { Log("上传进行中，请等待上传结束再打开存储维护"); return; }
+                EnterStorageMaintenance();
             };
             flow.Controls.Add(manage); tab.Controls.Add(flow); return tab;
         }
@@ -849,6 +868,7 @@ namespace GpuLcd
         void Log(string m)
         {
             string line = DateTime.Now.ToString("HH:mm:ss ") + m + "\r\n";
+            RecordLog(DateTime.Now.ToString("HH:mm:ss"), m);
             try { Directory.CreateDirectory(Paths.Data); File.AppendAllText(Path.Combine(Paths.Data, "log.txt"), DateTime.Now.ToString("MM-dd ") + line); } catch { }
             if (!IsHandleCreated) return;
             if (InvokeRequired) { BeginInvoke(new Action(() => logBox.AppendText(line))); return; }
@@ -857,6 +877,7 @@ namespace GpuLcd
 
         void Connect()
         {
+            if (uploading) { Log("上传进行中，请等待上传结束再重新连接"); return; }
             if(widgetOwnsScreen)StopWidgets();
             if (connected) { liveTimer.Stop(); dev.Close(); connected = false; dev = new Dev(); }
             bool maintenance = File.Exists(StorageOps.Flag);
@@ -948,15 +969,17 @@ namespace GpuLcd
 
         void RefreshFiles()
         {
-            if (!connected) return;
+            if (!connected || uploading) return;
             try
             {
                 var fl = Quiet(() => dev.ListFiles());
                 lstFiles.Items.Clear();
                 if (fl == null) { lbSpace.Text = "（读取失败）"; return; }
                 foreach (var kv in fl) lstFiles.Items.Add(kv.Key);
+                fileSizes = fl.ToDictionary(kv => kv.Key, kv => kv.Value);
                 long fr = 0, tot = 0;
                 bool ok = Quiet(() => dev.Space(out fr, out tot));
+                spaceKnown = ok; spaceFree = fr; spaceTotal = tot;
                 lbSpace.Text = ok ? string.Format("{0} 个文件，剩余空间 {1:N0} / {2:N0}", fl.Count, fr, tot) : fl.Count + " 个文件";
             }
             catch (Exception ex) { Log("读取屏幕文件列表出错: " + ex.Message); }
@@ -964,7 +987,7 @@ namespace GpuLcd
 
         void Changed() { if (!loading && connected) { debounce.Stop(); debounce.Start(); } }
 
-        bool Guard() { if(linkCfg.NightMode){Log("请先恢复灯光和屏幕");return false;} if(widgetOwnsScreen){Log("请先在进度 / 通知页恢复原画面");return false;} if (!connected) { Log("屏幕未连接"); return false; } return true; }
+        bool Guard() { if(uploading){Log("上传进行中，请等待上传结束");return false;} if(linkCfg.NightMode){Log("请先恢复灯光和屏幕");return false;} if(widgetOwnsScreen){Log("请先在进度 / 通知页恢复原画面");return false;} if (!connected) { Log("屏幕未连接"); return false; } return true; }
 
         void ApplyBasic()
         {
@@ -1019,7 +1042,8 @@ namespace GpuLcd
             if (!Savi.ValidName(name)) { Log("屏幕上的文件名只能是 1-8 位字母或数字，加 .savi，例如 img1.savi"); return; }
             string fit = cmbFit.SelectedIndex == 1 ? "cover" : cmbFit.SelectedIndex == 2 ? "stretch" : "contain";
             bool asMovie = rbMovie.Checked;
-            btnUpload.Enabled = false; pb.Value = 0;
+            uploading = true; btnUpload.Enabled = false; pb.Value = 0;
+            debounce.Stop(); revertTimer.Stop();   // 挂起的亮度写入 / 定时恢复都不能在上传中触发
             // 上传全程串口必须空闲：先停掉实时刷新，传完再恢复
             bool wasLive = dev.Started;
             if (wasLive) { liveTimer.Stop(); dev.Stop(); Log("上传期间暂停实时刷新"); }
@@ -1039,11 +1063,12 @@ namespace GpuLcd
                 {
                     BeginInvoke(new Action(() =>
                     {
-                        upTimer.Stop(); btnUpload.Enabled = true;
+                        upTimer.Stop(); uploading = false; btnUpload.Enabled = true;
                         if (ok) { pb.Value = 100; cfg.Fit = fit; cfg.Save(); }
                         if (wasLive) { try { dev.Start(); liveTimer.Start(); Log("已恢复实时刷新"); } catch (Exception ex) { Log("恢复实时刷新失败: " + ex.Message); } }
                         if (ok) { RefreshFiles(); Use(name, asMovie); }
                         else Log("上传没有完成。如果之后屏幕没有反应、顶部变成橙色，需要完全断电重启一次。");
+                        RaiseUploadDone(ok, name, asMovie);
                     }));
                 }
             });
@@ -1126,17 +1151,42 @@ namespace GpuLcd
             }
         }
 
-        void ShowMe() { Show(); WindowState = FormWindowState.Normal; Activate(); tray.Visible = false; }
+        void ShowMe() { tray.Visible = false; if (classicUi) ShowClassic(); else OpenWebUi(); }
+
+        void ShowClassic() { ShowInTaskbar = true; Opacity = 1; Show(); WindowState = FormWindowState.Normal; Activate(); }
+
+        // 关窗口后是否应该留在托盘继续工作（联动 / 熄灯 / 实时刷新在跑，且屏幕可用）
+        bool StayInTray(CloseReason reason)
+        {
+            return !reallyExit && reason == CloseReason.UserClosing
+                && (linkCfg.NightMode || cfg.Live || linkCfg.Codex || linkCfg.Claude || linkCfg.Signal) && (connected || linkCfg.NightMode);
+        }
+
+        // 新界面窗口被用户关掉之后：留托盘或退出（与原经典窗口的规则一致）。上传中绝不退出。
+        void AfterWebUiClosed()
+        {
+            if (shuttingDown || reallyExit || IsDisposed || classicUi || Visible) return;
+            if (uploading || StayInTray(CloseReason.UserClosing))
+            {
+                tray.Visible = true;
+                tray.ShowBalloonTip(2000, "显卡屏幕控制", "屏幕控制与联动仍在运行，右键托盘图标可退出。", ToolTipIcon.Info);
+            }
+            else { reallyExit = true; Close(); }
+        }
 
         void OnClosing(object s, FormClosingEventArgs e)
         {
-            if (!reallyExit && (linkCfg.NightMode || cfg.Live || linkCfg.Codex || linkCfg.AsstB || linkCfg.Signal) && (connected || linkCfg.NightMode) && e.CloseReason == CloseReason.UserClosing)
+            // 上传中关闭窗口会关掉串口，把屏幕写坏；一律拒绝，传完再退出
+            if (uploading) { e.Cancel = true; Log("上传进行中，暂不能退出；请等上传结束"); return; }
+            // 新界面开着时关经典窗口，只是把它藏起来
+            if (!classicUi && !reallyExit && e.CloseReason == CloseReason.UserClosing && webUi != null && !webUi.IsDisposed) { e.Cancel = true; Hide(); return; }
+            if (StayInTray(e.CloseReason))
             {
                 e.Cancel = true; Hide(); tray.Visible = true;
                 tray.ShowBalloonTip(2000, "显卡屏幕控制", "屏幕控制与联动仍在运行，右键托盘图标可退出。", ToolTipIcon.Info);
                 return;
             }
-            StopWidgets(); StopLinks(); liveTimer.Stop(); tray.Visible = false;
+            shuttingDown = true; CloseWebUi(); StopWidgets(); StopLinks(); liveTimer.Stop(); tray.Visible = false;
             if (connected) dev.Close();
         }
     }

@@ -227,7 +227,7 @@ namespace GpuLcd
             string root=StorageOps.FindRoot(); UI(()=>files.Items.Clear());
             if(root==null){string message=StorageOps.StorageDeviceStatus() ?? "未检测到屏幕磁盘。若 USB 已重新连接，点击“检查并恢复普通控制”。"; UI(()=>state.Text=message);Log(message);return;}
             var drive=new DriveInfo(root);
-            UI(()=>state.Text=string.Format("屏幕磁盘：{0}  ·  SONiX USB MSC\r\n总计 {1:N1} MiB，剩余 {2:N1} MiB。此模式下屏幕暂停，助手B 外部指令已暂停。",root,drive.TotalSize/1048576.0,drive.AvailableFreeSpace/1048576.0));
+            UI(()=>state.Text=string.Format("屏幕磁盘：{0}  ·  SONiX USB MSC\r\n总计 {1:N1} MiB，剩余 {2:N1} MiB。此模式下屏幕暂停，Claude 外部指令已暂停。",root,drive.TotalSize/1048576.0,drive.AvailableFreeSpace/1048576.0));
             foreach(string f in Directory.GetFiles(root,"*",SearchOption.TopDirectoryOnly)) UI(()=>files.Items.Add(Path.GetFileName(f)+"   "+new FileInfo(f).Length.ToString("N0")+" B"));
             foreach(string f in Directory.GetFiles(Path.Combine(root,"mov"))) UI(()=>files.Items.Add("mov\\"+Path.GetFileName(f)+"   "+new FileInfo(f).Length.ToString("N0")+" B"));
             Directory.CreateDirectory(Paths.Data);if(!File.Exists(StorageOps.Flag))File.WriteAllText(StorageOps.Flag,"USB storage active");

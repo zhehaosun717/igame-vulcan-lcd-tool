@@ -33,7 +33,7 @@ namespace GpuLcd {
                 // An untrackable second session must not mask the tracked task's completion.
                 if(r.Track(unknown))s.Apply(unknown,t);
                 Check(s.Current(t)=="done");Check(s.Current(t.AddSeconds(30))=="idle");
-                Check(!r.Track(new LinkEvent{client="asst",session_id="asst"}));
+                Check(!r.Track(new LinkEvent{client="claude",session_id="claude"}));
             }finally{if(File.Exists(path))File.Delete(path);}
             Console.WriteLine(count+" completion recovery assertions passed.");
         }

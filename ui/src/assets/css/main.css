@@ -1,0 +1,107 @@
+@import "tailwindcss";
+@import "@nuxt/ui";
+@import "@fontsource/barlow-condensed/500.css";
+@import "@fontsource/barlow-condensed/600.css";
+@import "@fontsource/barlow-condensed/700.css";
+@import "@fontsource/silkscreen/400.css";
+
+/*
+  设计语言：显卡"机箱"是无彩色的灰阶，只有那块屏幕会发光。
+  界面本身不用强调色——颜色只表示状态（工作 / 等待 / 完成 / 错误），并且主要出现在"孪生屏"里。
+  所以主色就是墨色：主按钮自然变成浅色反白。
+*/
+@theme {
+  --font-sans: "Microsoft YaHei UI", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Barlow Condensed", "Microsoft YaHei UI", "Segoe UI", sans-serif;
+  --font-pixel: "Silkscreen", "Consolas", monospace;
+
+  --color-state-working: #4c8dff;
+  --color-state-waiting: #f0b43c;
+  --color-state-done: #5fd3a0;
+  --color-state-error: #ff5d5d;
+}
+
+:root {
+  --ui-radius: 0.1875rem;
+}
+
+.dark {
+  --ui-bg: #121518;
+  --ui-bg-muted: #161a1e;
+  --ui-bg-elevated: #1a1f23;
+  --ui-bg-accented: #242b31;
+  --ui-bg-inverted: #e9ecef;
+  --ui-border: #2b323a;
+  --ui-border-muted: #232a30;
+  --ui-border-accented: #3b444d;
+  --ui-text-dimmed: #5d6670;
+  --ui-text-muted: #8b949e;
+  --ui-text-toned: #b4bcc4;
+  --ui-text: #d3d9de;
+  --ui-text-highlighted: #f4f6f8;
+  --ui-text-inverted: #121518;
+  --ui-primary: #e9ecef;
+}
+
+html,
+body {
+  background: var(--ui-bg);
+  color: var(--ui-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 机箱表面：极淡的拉丝横纹，只在页面底色上，不进入任何控件 */
+body {
+  background-image: repeating-linear-gradient(0deg, rgb(255 255 255 / 0.012) 0 1px, transparent 1px 3px);
+}
+
+::selection {
+  background: #e9ecef;
+  color: #121518;
+}
+
+/* 键盘焦点：墨色双线，清晰但不抢戏 */
+:focus-visible {
+  outline: 2px solid var(--ui-text-highlighted);
+  outline-offset: 2px;
+}
+
+/* 细滚动条 */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #3b444d transparent;
+}
+
+/* 数字用窄体仪表盘字形，等宽数字对齐 */
+.num {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* 丝印：像素字体的小标注，只用在"屏幕孪生"和读数单位上 */
+.silk {
+  font-family: var(--font-pixel);
+  letter-spacing: 0.04em;
+}
+
+/* 页面内容列：靠左对齐、限制行长（不居中，和左侧导航贴在一起读） */
+.page {
+  max-width: 40rem;
+}
+
+/* 刻线分区：用线条而不是一排卡片来分组 */
+.rule-b {
+  border-bottom: 1px solid var(--ui-border);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
