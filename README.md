@@ -23,6 +23,7 @@ Windows 上的七彩虹 iGame 火神 LCD 3.0 侧屏控制工具：C# / WinForms 
 - 自定义文字、实时数据、进度条和限时通知。
 - Codex / Claude Code 工作、等待、完成状态动画及各自灯光配色。
 - SignalRGB 默认彩虹、状态灯效、时间偏移和速率校准。
+- 同步到 Dot Matrix Studio 点阵屏：同色状态图标，夜间熄灯时一起熄灭；两个助手同时工作时，显示的那个至少保持 15 秒，不再来回跳。
 - 一键关闭屏幕和灯光，恢复后继续原状态。
 - 存储维护和开机动画工具。
 - 新网页界面及经典 WinForms 备用界面（`--classic`）。
@@ -62,6 +63,8 @@ cd ..
 保持工具运行，在联动页面启用对应客户端。将 `integration/CodexLCD.template.html` 作为本地 SignalRGB 灯效导入并选中。灯效通过本机事件接口接收状态，工具通过 SignalRGB 自带 MCP 读取确认。
 
 `integration/Hook.cs` 编译为 `GpuLcdHook.exe`。参考 `integration/hooks.example.json` 配置 Claude Code；Codex 示例为 `integration/codex-hooks.example.json`。替换示例安装路径，并将事件项合并到已有配置，避免覆盖其他钩子。动画上传后分别命名为 `ccwork/ccask/ccdone.savi` 和 `cxwork/cxask/cxdone.savi`。
+
+点阵屏：联动页勾选「同步到 Dot Matrix Studio 点阵屏」（默认开）。工具从 `%APPDATA%\Dot Matrix Studio\agent-api.json` 读取本机 API 端口和令牌，状态变化时 POST 到 `/api/scene?source=hook`，每 15 秒核对一次屏上画面，Dot Matrix Studio 重启后自动补发；只走 127.0.0.1，不碰显卡屏串口。用了这项同步后，Dot Matrix Studio 自带的状态钩子就不要再挂在助手配置里，否则两边会抢屏。
 
 ## 验证
 

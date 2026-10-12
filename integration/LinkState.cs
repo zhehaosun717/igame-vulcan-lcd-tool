@@ -21,6 +21,10 @@ namespace GpuLcd {
             foreach(var k in sessions.Where(kv=>kv.Value.Client==client).Select(kv=>kv.Key).ToArray()) sessions.Remove(k);
         }
         public string CurrentClient = "codex";
+        // When two clients are in the same state (both working), the one shown stays at least this long, so
+        // alternating tool events do not flip the LCD animation and the lights every few seconds.
+        public const int ClientHoldSeconds = 15;
+        DateTime clientSince = DateTime.MinValue;
         public object[] Snapshot() {
             return sessions.Select(kv => (object)new {session=kv.Key,turn=kv.Value.Turn,state=kv.Value.State,closed=kv.Value.Closed}).ToArray();
         }
@@ -58,10 +62,15 @@ namespace GpuLcd {
             foreach (var k in sessions.Where(kv => (now - kv.Value.Updated).TotalMinutes > 30).Select(kv => kv.Key).ToArray())
                 sessions.Remove(k);
             foreach(string state in new[]{"waiting","working","done"}) {
-                var entry = sessions.Values.Where(x => x.State == state &&
+                var candidates = sessions.Values.Where(x => x.State == state &&
                     (state != "done" || (now - x.Updated).TotalSeconds < (x.Client=="claude" ? 120 : 30)))
-                    .OrderByDescending(x=>x.Updated).FirstOrDefault();
-                if(entry!=null){CurrentClient=entry.Client;return state;}
+                    .OrderByDescending(x=>x.Updated).ToList();
+                if(candidates.Count==0)continue;
+                string client = candidates[0].Client;
+                bool held = client!=CurrentClient && (now-clientSince).TotalSeconds < ClientHoldSeconds &&
+                    candidates.Any(x => x.Client==CurrentClient);
+                if(!held && client!=CurrentClient){CurrentClient=client;clientSince=now;}
+                return state;
             }
             return "idle";
         }

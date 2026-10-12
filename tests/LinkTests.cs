@@ -4,7 +4,11 @@ namespace GpuLcd {
   static int count;
   static void Equal(string expected,string actual){if(expected!=actual)throw new Exception("Expected "+expected+", got "+actual);count++;}
   static LinkEvent E(string eventName,string session,string turn="1"){return new LinkEvent{hook_event_name=eventName,session_id=session,turn_id=turn};}
-  static void Main(){
+  // A failing assertion exits with code 1 instead of an unhandled exception (which can hang on an error dialog).
+  static int Main(){
+   try{Run();return 0;}catch(Exception ex){Console.WriteLine("FAIL: "+ex.Message);return 1;}
+  }
+  static void Run(){
    var s=new LinkState();var t=new DateTime(2026,10,7);
    Equal("idle",s.Current(t));
    s.Apply(E("UserPromptSubmit","a"),t);Equal("working",s.Current(t));
@@ -31,6 +35,21 @@ namespace GpuLcd {
    s.Clear();
    var cd=E("Stop","c");cd.client="claude";s.Apply(cd,t);
    Equal("done",s.Current(t.AddSeconds(119)));Equal("idle",s.Current(t.AddSeconds(121)));
+   // Two clients working at once: the shown client holds for 15 s instead of flipping on every tool event.
+   Func<string,string,string,LinkEvent> CE=(evt,session,client)=>{var e=E(evt,session);e.client=client;return e;};
+   var h=new LinkState();
+   h.Apply(CE("UserPromptSubmit","cc","claude"),t);Equal("working",h.Current(t));Equal("claude",h.CurrentClient);
+   h.Apply(CE("UserPromptSubmit","cx","codex"),t.AddSeconds(2));Equal("working",h.Current(t.AddSeconds(2)));Equal("claude",h.CurrentClient);
+   h.Apply(CE("PostToolUse","cc","claude"),t.AddSeconds(3));h.Apply(CE("PostToolUse","cx","codex"),t.AddSeconds(5));
+   h.Current(t.AddSeconds(5));Equal("claude",h.CurrentClient);
+   h.Current(t.AddSeconds(14));Equal("claude",h.CurrentClient);
+   h.Current(t.AddSeconds(16));Equal("codex",h.CurrentClient); // hold over: the most recent one shows
+   h.Apply(CE("PostToolUse","cc","claude"),t.AddSeconds(17));h.Current(t.AddSeconds(17));Equal("codex",h.CurrentClient);
+   // A more urgent state is never held back.
+   h.Apply(CE("PermissionRequest","cc","claude"),t.AddSeconds(18));Equal("waiting",h.Current(t.AddSeconds(18)));Equal("claude",h.CurrentClient);
+   // The held client leaving the state lets the other one show at once.
+   h.Apply(CE("PostToolUse","cc","claude"),t.AddSeconds(19));h.Current(t.AddSeconds(19));Equal("claude",h.CurrentClient);
+   h.Apply(CE("Stop","cc","claude"),t.AddSeconds(20));Equal("working",h.Current(t.AddSeconds(20)));Equal("codex",h.CurrentClient);
    Console.WriteLine(count+" state-machine assertions passed.");
   }
  }

@@ -64,8 +64,8 @@
 | `getLive` | — | `LiveInfo` | 实时数据开关、最近一次推送文字、开机自启状态 |
 | `setLive` | `{ on:boolean }` | `{}` | 开关"实时刷新"（CPU/内存推送，实验性） |
 | `setAutostart` | `{ on:boolean }` | `{}` | 开机自启（写注册表，不碰屏幕，任何状态可用） |
-| `getLinks` | — | `LinksInfo` | 联动配置与当前状态（不碰屏幕，任何状态可读） |
-| `setLinks` | `{ codex?, claude?, signal?:boolean, idleOffsetMs?:-5000..5000, idleRatePercent?:95..105 }` | `{}` | 只写配置文件和联动状态，不直接写串口；联动定时器随后按各自的守卫处理 |
+| `getLinks` | — | `LinksInfo` | 联动配置与当前状态（不碰屏幕，任何状态可读）；含 `dotMatrix` 开关与 `dotMatrixText` 点阵屏状态文字 |
+| `setLinks` | `{ codex?, claude?, signal?, dotMatrix?:boolean, idleOffsetMs?:-5000..5000, idleRatePercent?:95..105 }` | `{}` | 只写配置文件和联动状态，不直接写串口；联动定时器随后按各自的守卫处理 |
 | `linkDemo` | `{ state:'working'\|'waiting'\|'done'\|'idle' }` | `{}` | 测试联动（8 秒后自动恢复），会触发屏幕播放，受写守卫限制 |
 | `idleSync` | — | `{}` | "重播默认动画并对齐"，受写守卫限制 |
 | `sendWidget` | `WidgetRequest` | `{ message:string }` | 进度/通知，C# 复用原有 widget 通道（参数由其校验） |

@@ -49,3 +49,6 @@ ui/docs/.*snapshot*.txt
 
 # Private runtime binaries live in release attachments, not Git history.
 vendor/
+
+# agent instruction files stay local
+AGENTS.md

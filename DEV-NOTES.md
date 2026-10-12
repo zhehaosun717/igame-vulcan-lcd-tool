@@ -24,7 +24,8 @@
 4. 测试程序**不要**对真实的 `HKCU\...\Run\GpuLcdTool` 留下改动：程序写它时用的是自己当前的 exe 路径。`run-webbridge-test.ps1` 已自动保存并还原它。
 
 ## 沙箱坑（在 DSH 会话里工作时）
-从工作目录启动的 exe 无法写 `%APPDATA%` / `%LOCALAPPDATA%`，也连不上命名管道。用 `deploy-run.cmd` 部署到 `%LOCALAPPDATA%\GpuLcdRun` 再运行；测试台从 `%TEMP%` 运行。你自己手动运行不受影响。
+从工作目录启动的 exe 无法写 `%APPDATA%` / `%LOCALAPPDATA%`，也连不上命名管道。用 `deploy-run.cmd` 部署到 `%LOCALAPPDATA%\GpuLcdRun` 再运行；测试台从 `%TEMP%` 运行。
+根因（2026-10-12 查明）：沙箱会给工作目录加「低完整性」标签（`icacls 目录` 能看到 `Mandatory Label\Low Mandatory Level`，带 OI/CI 继承），目录里的 exe 不管谁启动都以低完整性运行——**手动双击也一样**：托盘图标注册不上、WebView2 报 0x800700AA 退回经典界面、写不了 `%APPDATA%` 的配置和日志、`Process.HasExited` 打不开别的进程。所以日常运行也用部署到 `GpuLcdRun` 的那份，开机自启要从那份的界面里重新开关一次。
 
 ## 用 opencode 的 DeepSeek 工人写前端
 `opencode run -m opencode-go/deepseek-v4.1-flash --dir ui "<提示词>"`。经验：

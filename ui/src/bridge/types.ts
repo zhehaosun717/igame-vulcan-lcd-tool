@@ -120,6 +120,7 @@ export interface LinksInfo {
   codex: boolean
   claude: boolean
   signal: boolean
+  dotMatrix: boolean
   idleOffsetMs: number
   idleRatePercent: number
   linkState: DeviceState['linkState']
@@ -128,11 +129,13 @@ export interface LinksInfo {
   sessions: LinkSession[]
   statusText: string // 联动状态文字
   signalText: string // SignalRGB 状态文字
+  dotMatrixText: string // Dot Matrix Studio 点阵屏状态文字
 }
 export interface SetLinksArgs {
   codex?: boolean
   claude?: boolean
   signal?: boolean
+  dotMatrix?: boolean
   idleOffsetMs?: number
   idleRatePercent?: number
 }

@@ -17,6 +17,7 @@ const info = ref<LinksInfo | null>(null)
 const codexOn = ref(false)
 const claudeOn = ref(false)
 const signalOn = ref(false)
+const dotMatrixOn = ref(false)
 const idleOffset = ref(0)
 const idleRate = ref(100)
 
@@ -104,6 +105,7 @@ function apply(next: LinksInfo): void {
   codexOn.value = next.codex
   claudeOn.value = next.claude
   signalOn.value = next.signal
+  dotMatrixOn.value = next.dotMatrix
   if (numbersTimer === null) {
     idleOffset.value = next.idleOffsetMs
     idleRate.value = next.idleRatePercent
@@ -134,6 +136,7 @@ function mergeLocal(args: SetLinksArgs): void {
   if (args.codex !== undefined) next.codex = args.codex
   if (args.claude !== undefined) next.claude = args.claude
   if (args.signal !== undefined) next.signal = args.signal
+  if (args.dotMatrix !== undefined) next.dotMatrix = args.dotMatrix
   if (args.idleOffsetMs !== undefined) next.idleOffsetMs = args.idleOffsetMs
   if (args.idleRatePercent !== undefined) {
     next.idleRatePercent = args.idleRatePercent
@@ -236,6 +239,11 @@ watch(signalOn, () => {
   writeLinks({ signal: signalOn.value })
 })
 
+watch(dotMatrixOn, () => {
+  if (syncing) return
+  writeLinks({ dotMatrix: dotMatrixOn.value })
+})
+
 // 两个数字输入防抖 600ms 后再 setLinks
 watch([idleOffset, idleRate], () => {
   if (syncing) return
@@ -267,7 +275,7 @@ onUnmounted(() => {
   <div class="page">
     <PageHead
       title="联动"
-      hint="接收 Codex 与 Claude Code 的任务事件，驱动屏幕动画，并可同步到 SignalRGB 灯光。"
+      hint="接收 Codex 与 Claude Code 的任务事件，驱动屏幕动画，并可同步到 SignalRGB 灯光和点阵屏。"
     />
 
     <Notice
@@ -307,6 +315,14 @@ onUnmounted(() => {
             <p class="row-help">把联动状态同步给 SignalRGB。</p>
           </div>
           <Rocker v-model="signalOn" />
+        </div>
+
+        <div class="row">
+          <div class="row-text">
+            <p class="row-label">同步到 Dot Matrix Studio 点阵屏</p>
+            <p class="row-help">把联动状态发给本机运行的 Dot Matrix Studio，在 iDotMatrix 点阵屏上显示同色图标；夜间熄灯时点阵屏也熄灭。</p>
+          </div>
+          <Rocker v-model="dotMatrixOn" />
         </div>
       </div>
     </Plate>

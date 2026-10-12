@@ -304,11 +304,11 @@ namespace GpuLcd
                         var ser = new JavaScriptSerializer();
                         return new
                         {
-                            codex = linkCfg.Codex, claude = linkCfg.Claude, signal = linkCfg.Signal,
+                            codex = linkCfg.Codex, claude = linkCfg.Claude, signal = linkCfg.Signal, dotMatrix = linkCfg.DotMatrix,
                             idleOffsetMs = linkCfg.IdleOffsetMs, idleRatePercent = (double)linkCfg.IdleRatePercent,
                             linkState = linkShown ?? "idle", receivedHookEvents = receivedHookEvents, lastHookEvent = lastHookEvent ?? "",
                             sessions = ser.DeserializeObject(ser.Serialize(linkState.Snapshot())),
-                            statusText = linkStatus.Text ?? "", signalText = signalStatus.Text ?? ""
+                            statusText = linkStatus.Text ?? "", signalText = signalStatus.Text ?? "", dotMatrixText = dotStatus.Text ?? ""
                         };
                     }
                 case "setLinks":
@@ -317,11 +317,12 @@ namespace GpuLcd
                         decimal rate = linkCfg.IdleRatePercent; int off = linkCfg.IdleOffsetMs;
                         if (args.ContainsKey("idleOffsetMs")) { if (!TryInt(args["idleOffsetMs"], out off) || off < -5000 || off > 5000) { error = "时间偏移必须在 -5000 到 5000 毫秒之间"; return null; } }
                         if (args.ContainsKey("idleRatePercent")) { try { rate = Convert.ToDecimal(args["idleRatePercent"]); } catch { error = "播放速度必须是数字"; return null; } if (rate < 95m || rate > 105m) { error = "播放速度必须在 95 到 105 之间"; return null; } }
-                        foreach (var k in new[] { "codex", "claude", "signal" }) if (args.ContainsKey(k) && !(args[k] is bool)) { error = k + " 必须是布尔值"; return null; }
+                        foreach (var k in new[] { "codex", "claude", "signal", "dotMatrix" }) if (args.ContainsKey(k) && !(args[k] is bool)) { error = k + " 必须是布尔值"; return null; }
                         // 通过原控件改值，沿用原有处理（清理状态、保存配置、刷新联动）
                         if (args.ContainsKey("codex")) chkCodex.Checked = (bool)args["codex"];
                         if (args.ContainsKey("claude")) chkClaude.Checked = (bool)args["claude"];
                         if (args.ContainsKey("signal")) chkSignal.Checked = (bool)args["signal"];
+                        if (args.ContainsKey("dotMatrix")) chkDotMatrix.Checked = (bool)args["dotMatrix"];
                         if (args.ContainsKey("idleOffsetMs")) nudOffset.Value = off;
                         if (args.ContainsKey("idleRatePercent")) nudRate.Value = Math.Round(rate, 2);
                         return new { };

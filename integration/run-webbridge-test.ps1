@@ -29,7 +29,7 @@ $csc = 'C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\
 $out = Join-Path $root 'integration\WebBridgeTest.exe'
 Remove-Item $out -ErrorAction SilentlyContinue   # 防止编译失败后误用旧版本
 Push-Location $root
-& $csc /nologo /target:exe /platform:x64 /main:GpuLcd.WebBridgeTest "/out:$out" "/r:$ig\iGameAPI.LCD.CSharp.dll" "/r:$ig\iGameAPI.NVAPI.CSharp.dll" "/r:$ig\iGameAPI.Contracts.dll" "/r:$ig\iGameCenter.Contracts.dll" /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll /r:System.Management.dll /r:System.Web.dll /r:System.IO.Compression.dll "/r:lib\Microsoft.Web.WebView2.Core.dll" "/r:lib\Microsoft.Web.WebView2.WinForms.dll" VendorRuntime.cs GpuLcd.cs Storage.cs Integrations.cs SignalBridge.cs Widgets.cs DisplayJobs.cs NightMode.cs WebUi.cs integration\LinkState.cs integration\CompletionReader.cs integration\WebBridgeTest.cs
+& $csc /nologo /target:exe /platform:x64 /main:GpuLcd.WebBridgeTest "/out:$out" "/r:$ig\iGameAPI.LCD.CSharp.dll" "/r:$ig\iGameAPI.NVAPI.CSharp.dll" "/r:$ig\iGameAPI.Contracts.dll" "/r:$ig\iGameCenter.Contracts.dll" /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll /r:System.Management.dll /r:System.Web.dll /r:System.IO.Compression.dll "/r:lib\Microsoft.Web.WebView2.Core.dll" "/r:lib\Microsoft.Web.WebView2.WinForms.dll" VendorRuntime.cs GpuLcd.cs Storage.cs Integrations.cs SignalBridge.cs Widgets.cs DisplayJobs.cs NightMode.cs WebUi.cs integration\LinkState.cs integration\CompletionReader.cs integration\DotMatrixScene.cs integration\DotMatrixClient.cs DotMatrixBridge.cs integration\WebBridgeTest.cs
 $ok = ($LASTEXITCODE -eq 0) -and (Test-Path $out)
 Pop-Location
 if (-not $ok) { throw 'compile failed - test NOT run' }

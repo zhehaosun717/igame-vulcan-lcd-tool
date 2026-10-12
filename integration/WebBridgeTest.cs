@@ -184,6 +184,11 @@ namespace GpuLcd {
     bool cx0=J(li).Contains("\"codex\":true");
     Call("setLinks",D("codex",!cx0),out err);li=Call("getLinks",null,out err);Check("setLinks toggles codex",J(li).Contains("\"codex\":"+(!cx0?"true":"false")),J(li));
     Call("setLinks",D("codex",cx0),out err);li=Call("getLinks",null,out err);Check("setLinks restores codex",J(li).Contains("\"codex\":"+(cx0?"true":"false")),"");
+    Check("getLinks has dot matrix status",J(li).Contains("\"dotMatrixText\""),J(li));
+    Call("setLinks",D("dotMatrix","yes"),out err);Check("setLinks rejects non-bool dotMatrix",err!=null&&err.Contains("布尔"),err);
+    bool dm0=J(li).Contains("\"dotMatrix\":true");
+    Call("setLinks",D("dotMatrix",!dm0),out err);li=Call("getLinks",null,out err);Check("setLinks toggles dotMatrix",J(li).Contains("\"dotMatrix\":"+(!dm0?"true":"false")),J(li));
+    Call("setLinks",D("dotMatrix",dm0),out err);li=Call("getLinks",null,out err);Check("setLinks restores dotMatrix",J(li).Contains("\"dotMatrix\":"+(dm0?"true":"false")),"");
     nm.SetValue(lc,false);
     Call("linkDemo",D("state","exploding"),out err);Check("linkDemo rejects bad state",err!=null&&err.Contains("状态"),err);
     S("uploading",true);Call("linkDemo",D("state","working"),out err);Check("linkDemo refused while uploading",err=="上传进行中",err);Call("idleSync",null,out err);Check("idleSync refused while uploading",err=="上传进行中",err);Call("sendWidget",D("action","notify","seconds",5,"text","X"),out err);Check("sendWidget refused while uploading",err=="上传进行中",err);S("uploading",false);

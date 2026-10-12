@@ -16,6 +16,7 @@ namespace GpuLcd {
         public int IdleOffsetMs = 0;
         public decimal IdleRatePercent = 100m;
         public bool NightMode = false;
+        public bool DotMatrix = true;
     }
     partial class MainForm {
         readonly LinkState linkState = new LinkState();
@@ -48,6 +49,7 @@ namespace GpuLcd {
             var signal = new CheckBox { Text = "同步到 SignalRGB 灯光", AutoSize = true, Checked = linkCfg.Signal };
             signal.CheckedChanged += (s,e) => { linkCfg.Signal = signal.Checked; signalApplied = ""; SaveLinks(); TickLinks(); };
             chkSignal = signal; flow.Controls.Add(signal);
+            AddDotMatrixControls(flow);
             var offsetRow=new FlowLayoutPanel {AutoSize=true,WrapContents=false,Margin=new Padding(0,8,0,0)};
             offsetRow.Controls.Add(new Label {Text="默认灯效时间偏移（毫秒）",AutoSize=true,Margin=new Padding(0,6,8,0)});
             var offset=new NumericUpDown {Minimum=-5000,Maximum=5000,Increment=50,Width=90,Value=Math.Max(-5000,Math.Min(5000,linkCfg.IdleOffsetMs))};
@@ -77,12 +79,12 @@ namespace GpuLcd {
                 row.Controls.Add(b);
             }
             flow.Controls.Add(row);
-            linkStatus.AutoSize = signalStatus.AutoSize = true;
-            linkStatus.MaximumSize = signalStatus.MaximumSize = new Size(500,0);
-            linkStatus.Margin = signalStatus.Margin = new Padding(0,8,0,8);
+            linkStatus.AutoSize = signalStatus.AutoSize = dotStatus.AutoSize = true;
+            linkStatus.MaximumSize = signalStatus.MaximumSize = dotStatus.MaximumSize = new Size(500,0);
+            linkStatus.Margin = signalStatus.Margin = dotStatus.Margin = new Padding(0,8,0,8);
             linkStatus.Text = "任务事件：等待";
             signalStatus.Text = "SignalRGB：未连接";
-            flow.Controls.Add(linkStatus); flow.Controls.Add(signalStatus);
+            flow.Controls.Add(linkStatus); flow.Controls.Add(signalStatus); flow.Controls.Add(dotStatus);
             flow.Controls.Add(new Label { AutoSize = true, ForeColor = Color.Gray, MaximumSize = new Size(500,0),
                 Text = "保持小工具在托盘运行即可。Codex 钩子首次使用需在 Codex 的 /hooks 中审阅并启用。\r\nSignalRGB 需运行并选中 CodexLCD 灯效；状态回执显示在下方。\r\n多个任务同时运行时：等待授权优先，其次工作中。30 分钟无事件的状态自动过期。\r\nSignalRGB 中的 Preview 可反向触发小屏幕，持续 8 秒。\r\n只传递事件类型与会话标识，不保存或传递对话正文。" });
             var doc = new Button { Text="打开联动说明", AutoSize=true, MinimumSize=new Size(160,34), Margin=new Padding(0,12,0,0) };
@@ -172,6 +174,7 @@ namespace GpuLcd {
                 if(result.StartsWith("OK")) { linkApplied=state; linkAppliedClient=client; }
                 linkStatus.Text="小屏幕："+(state=="idle" ? "" : client=="claude" ? "Claude Code / " : "Codex / ")+text+"　"+result;
             } else if (state==linkApplied) linkStatus.Text="小屏幕："+(state=="idle" ? "" : client=="claude" ? "Claude Code / " : "Codex / ")+text;
+            TickDotMatrix(state, client, now);
             sharedState=state; signalOn=linkCfg.Signal;
             if(!signalOn && signalBridge!=null){var old=signalBridge;signalBridge=null;old.Dispose();}
             StartSignalBridge();
@@ -195,6 +198,7 @@ namespace GpuLcd {
             linkTimer.Stop();
             var server=signalBridge; signalBridge=null; if(server!=null)server.Dispose();
             if (connected && !linkCfg.NightMode && linkApplied!="idle") try { HandleCommand("revert"); } catch { }
+            if (linkCfg.DotMatrix) ReleaseDotMatrix(true);
         }
     }
 }

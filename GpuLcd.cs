@@ -658,7 +658,7 @@ namespace GpuLcd
             var menu = new ContextMenuStrip();
             menu.Items.Add("显示窗口", null, (s, e) => ShowMe());
             nightMenu=new ToolStripMenuItem();nightMenu.Click+=(s,e)=>Log(SetNightMode(!linkCfg.NightMode));menu.Items.Add(nightMenu);UpdateNightUi();
-            menu.Items.Add("经典界面（备用）", null, (s, e) => { tray.Visible = false; ShowClassic(); });
+            menu.Items.Add("经典界面（备用）", null, (s, e) => ShowClassic());
             menu.Items.Add("退出", null, (s, e) => { reallyExit = true; Close(); });
             tray.ContextMenuStrip = menu; tray.DoubleClick += (s, e) => ShowMe();
 
@@ -685,11 +685,12 @@ namespace GpuLcd
                 Connect();
                 StartLinks();
                 StartWidgets();
-                if (classicUi) { if (startInTray) { Hide(); tray.Visible = true; } }
+                tray.Visible = true;   // 托盘图标常驻（窗口开着时也在），随时能找到程序、右键退出
+                if (classicUi) { if (startInTray) Hide(); }
                 else
                 {
                     Hide(); Opacity = 1;   // 经典窗口退到后台；新界面是主窗口
-                    if (startInTray) tray.Visible = true; else OpenWebUi();
+                    if (!startInTray) OpenWebUi();
                 }
             };
             FormClosing += OnClosing;
@@ -1125,15 +1126,17 @@ namespace GpuLcd
             }
         }
 
-        void ShowMe() { tray.Visible = false; if (classicUi) ShowClassic(); else OpenWebUi(); }
+        void ShowMe() { if (classicUi) ShowClassic(); else OpenWebUi(); }
 
         void ShowClassic() { ShowInTaskbar = true; Opacity = 1; Show(); WindowState = FormWindowState.Normal; Activate(); }
 
-        // 关窗口后是否应该留在托盘继续工作（联动 / 熄灯 / 实时刷新在跑，且屏幕可用）
+        // 关窗口后是否应该留在托盘继续工作（联动 / 熄灯 / 实时刷新在跑，且屏幕可用；
+        // 显卡屏没连上但还在给点阵屏转发助手状态时，也要留着）
         bool StayInTray(CloseReason reason)
         {
             return !reallyExit && reason == CloseReason.UserClosing
-                && (linkCfg.NightMode || cfg.Live || linkCfg.Codex || linkCfg.Claude || linkCfg.Signal) && (connected || linkCfg.NightMode);
+                && (linkCfg.NightMode || cfg.Live || linkCfg.Codex || linkCfg.Claude || linkCfg.Signal)
+                && (connected || linkCfg.NightMode || (linkCfg.DotMatrix && (linkCfg.Codex || linkCfg.Claude)));
         }
 
         // 新界面窗口被用户关掉之后：留托盘或退出（与原经典窗口的规则一致）。上传中绝不退出。

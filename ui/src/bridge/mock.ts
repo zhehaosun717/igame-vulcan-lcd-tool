@@ -363,7 +363,8 @@ function run(cmd: CmdName, args: unknown): MockResult {
           lastHookEvent: 'claude/SessionEnd',
           sessions: [{ session: 'claude:demo', turn: 't1', state: state.linkState, closed: false }],
           statusText: '任务事件：' + state.linkState,
-          signalText: 'SignalRGB：事件接口已接收'
+          signalText: 'SignalRGB：事件接口已接收',
+          dotMatrixText: '点阵屏：空闲　已显示'
         }
       }
     case 'setLinks': {
@@ -461,7 +462,7 @@ const MODE_NAMES = ['自定义动画/图片', 'CPU 频率', 'CPU 占用', 'CPU �
 const modes = { selected: [0], interval: 10, auto: true }
 const textInfo: SetTextArgs = { text: '', fontSize: 0, color: 'FF0000', show: false }
 const live = { on: false, autostart: false }
-const links = { codex: true, claude: true, signal: false, idleOffsetMs: 0, idleRatePercent: 100 }
+const links = { codex: true, claude: true, signal: false, dotMatrix: true, idleOffsetMs: 0, idleRatePercent: 100 }
 let widget: WidgetStatus = { active: false, kind: null, sent: '', error: '' }
 
 // 与真实 C# 的 WebWriteBlock 一致

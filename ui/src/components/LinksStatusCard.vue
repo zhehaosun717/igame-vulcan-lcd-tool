@@ -40,6 +40,10 @@ function label(state: string): string {
           <dd>{{ info.signalText || '—' }}</dd>
         </div>
         <div>
+          <dt>点阵屏</dt>
+          <dd>{{ info.dotMatrixText || '—' }}</dd>
+        </div>
+        <div>
           <dt>已接收任务事件</dt>
           <dd class="num">{{ info.receivedHookEvents }}</dd>
         </div>
