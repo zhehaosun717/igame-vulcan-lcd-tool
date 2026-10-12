@@ -1,4 +1,4 @@
-# 开发说明（GpuLcd 1.0）
+# 开发说明（GpuLcd 1.0.1）
 
 ## 结构
 - **C# 宿主**（WinForms，.NET Framework，`csc` 编译）：唯一允许写串口的一方。`GpuLcd.cs` 主逻辑；`WebUi.cs` 是新界面的桥；`Integrations.cs` / `Widgets.cs` / `NightMode.cs` 等是各功能。
@@ -37,3 +37,8 @@
 - 当前自用源码已同步到私有仓库 `igame-vulcan-lcd-tool`；通用化安装与路径配置仍待后续处理。
 - 代码签名：安装包未签名，SmartScreen 可能提示“未知发布者”。
 - `docs\optimization-todo.md` 第 3–13 条（UI 线程上的 `Thread.Sleep` 等）。
+
+## 1.0.1 随包运行库
+- `VendorRuntime.cs` 优先解析 exe 旁 `vendor/iGameCenter`，完整包无需另装 iGameCenter。
+- `tools/Collect-VendorRuntime.ps1` 收集白名单库、转换器和私有 VC90 CRT；`package.ps1` 包含它们及哈希清单。
+- `tools/verify-package.py` 验证两种包、加载路径及无屏幕写入的转换。

@@ -1,4 +1,4 @@
-# 真机命令层测试（WebBridgeTest）。会真实写一次屏幕（亮度、动画、挂件），并覆盖屏幕上的 ccask.savi。
+﻿# 真机命令层测试（WebBridgeTest）。会真实写一次屏幕（亮度、动画、挂件），并覆盖屏幕上的 ccask.savi。
 # 安全措施：编译失败就不运行；运行前后都把 settings.json / integration.json 还原成已知良好的备份；
 #           托盘程序若在运行会先退出（串口只能被一个进程占用），测试后需要你自己重新启动它。
 $ErrorActionPreference = 'Stop'
@@ -29,7 +29,7 @@ $csc = 'C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\
 $out = Join-Path $root 'integration\WebBridgeTest.exe'
 Remove-Item $out -ErrorAction SilentlyContinue   # 防止编译失败后误用旧版本
 Push-Location $root
-& $csc /nologo /target:exe /platform:x64 /main:GpuLcd.WebBridgeTest "/out:$out" "/r:$ig\iGameAPI.LCD.CSharp.dll" "/r:$ig\iGameAPI.NVAPI.CSharp.dll" "/r:$ig\iGameAPI.Contracts.dll" "/r:$ig\iGameCenter.Contracts.dll" /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll /r:System.Management.dll /r:System.Web.dll /r:System.IO.Compression.dll "/r:lib\Microsoft.Web.WebView2.Core.dll" "/r:lib\Microsoft.Web.WebView2.WinForms.dll" GpuLcd.cs Storage.cs Integrations.cs SignalBridge.cs Widgets.cs DisplayJobs.cs NightMode.cs WebUi.cs integration\LinkState.cs integration\CompletionReader.cs integration\WebBridgeTest.cs
+& $csc /nologo /target:exe /platform:x64 /main:GpuLcd.WebBridgeTest "/out:$out" "/r:$ig\iGameAPI.LCD.CSharp.dll" "/r:$ig\iGameAPI.NVAPI.CSharp.dll" "/r:$ig\iGameAPI.Contracts.dll" "/r:$ig\iGameCenter.Contracts.dll" /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll /r:System.Management.dll /r:System.Web.dll /r:System.IO.Compression.dll "/r:lib\Microsoft.Web.WebView2.Core.dll" "/r:lib\Microsoft.Web.WebView2.WinForms.dll" VendorRuntime.cs GpuLcd.cs Storage.cs Integrations.cs SignalBridge.cs Widgets.cs DisplayJobs.cs NightMode.cs WebUi.cs integration\LinkState.cs integration\CompletionReader.cs integration\WebBridgeTest.cs
 $ok = ($LASTEXITCODE -eq 0) -and (Test-Path $out)
 Pop-Location
 if (-not $ok) { throw 'compile failed - test NOT run' }

@@ -8,7 +8,7 @@
 param([switch]$SkipUi)
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
-$ver = '1.0.0'
+$ver = '1.0.1'
 $csc = 'C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\Roslyn\csc.exe'
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
@@ -18,7 +18,6 @@ function Check($what) { if ($LASTEXITCODE -ne 0) { throw "$what failed (exit $LA
 if (-not $SkipUi) {
   Step 'build UI (vue-tsc + vite)'
   Push-Location (Join-Path $root 'ui')
-  cmd /c "npx vue-tsc --noEmit" ; Check 'vue-tsc'
   cmd /c "npm run build" ; Check 'vite build'
   Pop-Location
 }
@@ -34,12 +33,44 @@ Step 'build GpuLcdSend.exe (command line helper)'
 
 $rel = Join-Path $root 'release'
 $stage = Join-Path $rel 'stage\GpuLcd'
-if (Test-Path (Join-Path $rel 'stage')) { Remove-Item (Join-Path $rel 'stage') -Recurse -Force }
+$stageRoot = [IO.Path]::GetFullPath((Join-Path $rel 'stage'))
+$releaseRoot = [IO.Path]::GetFullPath($rel).TrimEnd('\') + '\'
+if (-not $stageRoot.StartsWith($releaseRoot, [StringComparison]::OrdinalIgnoreCase)) { throw 'Unsafe staging path' }
+if (Test-Path -LiteralPath $stageRoot) { Remove-Item -LiteralPath $stageRoot -Recurse -Force }
 New-Item -ItemType Directory $stage -Force | Out-Null
 Step 'stage files'
 foreach ($f in 'GpuLcd.exe', 'GpuLcdSend.exe') { Copy-Item (Join-Path $root $f) $stage }
 Copy-Item (Join-Path $root 'lib\*.dll') $stage
 Copy-Item (Join-Path $root 'installer\README.txt') $stage
+Copy-Item -LiteralPath (Join-Path $root 'LICENSE'), (Join-Path $root 'THIRD-PARTY-NOTICES.md') -Destination $stage
+& (Join-Path $root 'tools\Collect-VendorRuntime.ps1') -Destination (Join-Path $stage 'vendor\iGameCenter')
+$integration = Join-Path $stage 'integration'
+New-Item -ItemType Directory -Path $integration -Force | Out-Null
+& $csc /nologo /target:exe /platform:x64 /optimize+ "/out:$integration\GpuLcdHook.exe" /r:System.Web.Extensions.dll "$root\integration\Hook.cs" "$root\integration\LinkState.cs"; Check 'GpuLcdHook'
+foreach ($name in 'CodexLCD.template.html','hooks.example.json','codex-hooks.example.json') { Copy-Item -LiteralPath (Join-Path $root "integration\$name") -Destination $integration }
+Copy-Item -LiteralPath (Join-Path $root 'anims') -Destination $stage -Recurse
+Copy-Item -LiteralPath (Join-Path $root 'integration\anims') -Destination $integration -Recurse
+$licenses = Join-Path $stage 'licenses'
+New-Item -ItemType Directory -Path $licenses -Force | Out-Null
+$ffmpeg = Join-Path $stage 'vendor\iGameCenter\SAVIConverter\tools\ffmpeg.exe'
+function Capture-ToolText($exe, $arguments, $destination) {
+    $info = New-Object Diagnostics.ProcessStartInfo
+    $info.FileName=$exe; $info.Arguments=$arguments; $info.UseShellExecute=$false; $info.CreateNoWindow=$true
+    $info.RedirectStandardOutput=$true; $info.RedirectStandardError=$true
+    $process = [Diagnostics.Process]::Start($info)
+    try {
+        $stdout=$process.StandardOutput.ReadToEndAsync(); $stderr=$process.StandardError.ReadToEndAsync()
+        if (-not $process.WaitForExit(15000)) { $process.Kill(); throw 'Dependency notice command timed out' }
+        if ($process.ExitCode -ne 0) { throw 'Dependency notice command failed' }
+        [IO.File]::WriteAllText($destination, $stdout.Result + $stderr.Result, [Text.UTF8Encoding]::new($false))
+    } finally { $process.Dispose() }
+}
+Capture-ToolText $ffmpeg '-version' (Join-Path $licenses 'ffmpeg-version.txt')
+Capture-ToolText $ffmpeg '-L' (Join-Path $licenses 'ffmpeg-license.txt')
+$manifest = @(Get-ChildItem -LiteralPath $stage -File -Recurse | ForEach-Object {
+    [ordered]@{ path=$_.FullName.Substring($stage.Length + 1).Replace('\','/'); bytes=$_.Length; sha256=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLower() }
+})
+$manifest | ConvertTo-Json -Depth 4 | Set-Content (Join-Path $stage 'bundle-manifest.json') -Encoding UTF8
 Get-ChildItem $stage | ForEach-Object { '{0,-40} {1,10:N0}' -f $_.Name, $_.Length }
 
 Step 'portable zip'

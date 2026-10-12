@@ -1,13 +1,13 @@
-显卡屏幕控制 1.0.0
+﻿显卡屏幕控制 1.0.1
 ====================
 
 七彩虹 iGame 火神 RTX 3070 Ti 的 LCD 3.0 侧屏独立控制工具。
-不需要 iGameCenter 在后台运行，但需要它的厂商库（C:\Program Files\iGameCenter）。
+已附带 LCD 厂商库、SAVI / FFmpeg 转换工具和私有 VC90 运行库，无需安装 iGameCenter。
 
 运行要求
 --------
 - Windows 10 / 11（x64）
-- 已安装 iGameCenter（只用它的库，不需要打开它）
+- 保持 vendor 文件夹与 GpuLcd.exe 在一起，不要只复制 exe。
 - Microsoft Edge WebView2 运行时（Windows 11 自带；Windows 10 多数也有）。
   没有的话程序会自动改用经典界面。
 

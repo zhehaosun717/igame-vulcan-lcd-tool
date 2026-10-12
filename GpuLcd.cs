@@ -1,5 +1,5 @@
-// GpuLcd - 直接控制七彩虹 iGame 显卡 LCD 3.0 屏幕，不运行 iGameCenter。
-// 调用的是 iGameCenter 安装目录里自带的 iGameAPI.LCD.CSharp.dll（需保留该目录，但不需要打开 iGameCenter）。
+﻿// GpuLcd - 直接控制七彩虹 iGame 显卡 LCD 3.0 屏幕，不运行 iGameCenter。
+// 优先使用随包 vendor/iGameCenter 的运行库；开发环境可回退到已安装的厂商库。
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -24,32 +24,6 @@ using DramInfo = iGameCenter.Contracts.Hardware.DRAMLoadInfo;
 
 namespace GpuLcd
 {
-    // ---------------------------------------------------------------- 厂家库加载
-    static class Vendor
-    {
-        public const string Root = @"C:\Program Files\iGameCenter";
-        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-        static extern bool SetDllDirectory(string p);
-
-        public static void Setup()
-        {
-            if (!Directory.Exists(Root)) throw new DirectoryNotFoundException("找不到 iGameCenter 安装目录: " + Root);
-            string api = Path.Combine(Root, "iGameAPI");
-            SetDllDirectory(api);
-            Environment.SetEnvironmentVariable("PATH", api + ";" + Root + ";" + Environment.GetEnvironmentVariable("PATH"));
-            AppDomain.CurrentDomain.AssemblyResolve += (s, e) =>
-            {
-                string n = new System.Reflection.AssemblyName(e.Name).Name;
-                foreach (string d in new[] { Root, api })
-                {
-                    string p = Path.Combine(d, n + ".dll");
-                    if (File.Exists(p)) return System.Reflection.Assembly.LoadFrom(p);
-                }
-                return null;
-            };
-        }
-    }
-
     // ---------------------------------------------------------------- 设置文件
     class Cfg
     {

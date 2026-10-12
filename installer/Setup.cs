@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -13,8 +13,8 @@ using Microsoft.Win32;
 
 [assembly: AssemblyTitle("显卡屏幕控制 安装程序")]
 [assembly: AssemblyProduct("GpuLcd")]
-[assembly: AssemblyVersion("1.0.0.0")]
-[assembly: AssemblyFileVersion("1.0.0.0")]
+[assembly: AssemblyVersion("1.0.1.0")]
+[assembly: AssemblyFileVersion("1.0.1.0")]
 
 // 安装 / 卸载一体的小安装器（每用户安装，不需要管理员权限）。
 //   Setup.exe                       图形界面安装
@@ -23,7 +23,7 @@ using Microsoft.Win32;
 static class Setup
 {
     const string AppName = "显卡屏幕控制";
-    const string Version = "1.0.0";
+    const string Version = "1.0.1";
     const string UninstallKey = @"Software\Microsoft\Windows\CurrentVersion\Uninstall\GpuLcdTool";
     const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
     const string PipeName = "GpuLcdTool";
@@ -96,7 +96,6 @@ static class Setup
                 using (var k = hive.OpenSubKey(path)) if (k != null && !string.IsNullOrEmpty(k.GetValue("pv") as string)) wv2 = true;
         }
         if (!wv2) sb.AppendLine("· 未检测到 Microsoft Edge WebView2 运行时：程序会自动改用经典界面。可从 Microsoft 官网安装 WebView2 后获得新界面。");
-        if (!Directory.Exists(@"C:\Program Files\iGameCenter")) sb.AppendLine("· 未找到 C:\\Program Files\\iGameCenter：本程序通过其中的厂商库控制屏幕，需要先安装 iGameCenter。");
         return sb.ToString().Trim();
     }
 
@@ -187,7 +186,7 @@ static class Setup
         var f = new Form { Text = AppName + " 安装程序", StartPosition = FormStartPosition.CenterScreen, FormBorderStyle = FormBorderStyle.FixedDialog, MaximizeBox = false, MinimizeBox = false, ClientSize = new Size(520, 330), Font = new Font("Microsoft YaHei UI", 9f) };
         try { f.Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
         f.Controls.Add(new Label { Text = AppName + " " + Version, Font = new Font("Microsoft YaHei UI", 14f, FontStyle.Bold), Location = new Point(20, 16), AutoSize = true });
-        f.Controls.Add(new Label { Text = "七彩虹 iGame 火神 LCD 3.0 侧屏的独立控制工具，不需要 iGameCenter 在后台运行。", Location = new Point(20, 52), Size = new Size(480, 20), ForeColor = Color.Gray });
+        f.Controls.Add(new Label { Text = "七彩虹 iGame 火神 LCD 3.0 侧屏的独立控制工具，已附带屏幕运行库，无需安装 iGameCenter。", Location = new Point(20, 52), Size = new Size(480, 20), ForeColor = Color.Gray });
         f.Controls.Add(new Label { Text = "安装位置", Location = new Point(20, 90), AutoSize = true });
         var path = new TextBox { Text = o.Dir, Location = new Point(20, 112), Width = 390 };
         var browse = new Button { Text = "浏览…", Location = new Point(420, 110), Width = 80 };

@@ -46,3 +46,6 @@ integration/hooks.proposed.json
 integration/claude-hooks.proposed.json
 ui/docs/worker*.txt
 ui/docs/.*snapshot*.txt
+
+# Private runtime binaries live in release attachments, not Git history.
+vendor/
