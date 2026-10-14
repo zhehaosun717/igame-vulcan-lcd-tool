@@ -1,6 +1,6 @@
 # igame-vulcan-lcd-tool
 
-Windows 上的七彩虹 iGame 火神 LCD 3.0 侧屏控制工具：C# / WinForms 宿主 + Vue 3 / TypeScript / WebView2 界面。1.0.1 安装版和便携版已附带 LCD 厂商库及转换工具，无需另装 iGameCenter。源码开发环境仍可回退到本机安装的厂商库。
+Windows 上的七彩虹 iGame 火神 LCD 3.0 侧屏控制工具：C# / WinForms 宿主 + Vue 3 / TypeScript / WebView2 界面。1.0.2 安装版和便携版已附带 LCD 厂商库及转换工具，无需另装 iGameCenter。源码开发环境仍可回退到本机安装的厂商库。
 
 本次同步的是当前自用版本，包含实际使用的 Codex、Claude Code 和 SignalRGB 联动；部分脚本仍按本机安装环境编写，并非通用的一键安装发行版。
 
@@ -8,8 +8,8 @@ Windows 上的七彩虹 iGame 火神 LCD 3.0 侧屏控制工具：C# / WinForms 
 
 在本私有仓库的 [Releases](https://github.com/zhehaosun717/igame-vulcan-lcd-tool/releases/latest) 下载：
 
-- `GpuLcd-Setup-1.0.1.exe`：每用户安装版。
-- `GpuLcd-1.0.1-portable.zip`：完整解压后运行其中的 `GpuLcd/GpuLcd.exe`。
+- `GpuLcd-Setup-1.0.2.exe`：每用户安装版。
+- `GpuLcd-1.0.2-portable.zip`：完整解压后运行其中的 `GpuLcd/GpuLcd.exe`。
 - `SHA256SUMS.txt`：安装包与便携包的校验值。
 
 保留 `vendor/` 目录和 exe 旁的 WebView2 DLL。包内包括 LCD / NVAPI 库、SAVI / FFmpeg、私有 x86 VC90 CRT，以及助手钩子和灯效模板。仍需 Windows x64 / .NET Framework 和兼容的显卡 USB 连接；WebView2 Runtime 未捆绑，缺少时尝试回退经典界面。SignalRGB 联动需另装 SignalRGB。
@@ -82,3 +82,7 @@ node integration/test-effect.cjs
 个人配置保存在 `%APPDATA%\GpuLcdTool`，不随仓库上传。运行日志、设备枚举、布局快照、固件转储、备份、依赖目录和构建输出均排除。
 
 上传期间由宿主控制写入互斥；维护功能可能切换 USB 模式。不要同时运行多个控制屏幕的程序。界面确认框和现有硬件限制仍适用。此工具只在特定硬件环境中验证，不承诺支持所有火神型号。
+
+## 连不上屏幕
+
+日志（`%APPDATA%\GpuLcdTool\log.txt`）里出现「写入超时」和「找到显卡和 LCD，但屏幕串口握手失败」，多半是串口号冲突：屏幕是设备管理器「端口 (COM 和 LPT)」里的「USB 串行设备」（USB ID 0C45:9830），如果「蓝牙链接上的标准串行」占了同一个 COM 号，打开的其实是蓝牙端口。把蓝牙那个端口的 COM 号改掉（属性 → 端口设置 → 高级），再禁用并启用一次 USB 串行设备或重启即可；不用蓝牙串口的话，也可以在「更多蓝牙设置 → COM 端口」里删掉它们。
