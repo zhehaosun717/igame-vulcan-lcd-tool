@@ -13,8 +13,8 @@ using Microsoft.Win32;
 
 [assembly: AssemblyTitle("显卡屏幕控制 安装程序")]
 [assembly: AssemblyProduct("GpuLcd")]
-[assembly: AssemblyVersion("1.0.3.0")]
-[assembly: AssemblyFileVersion("1.0.3.0")]
+[assembly: AssemblyVersion("1.0.4.0")]
+[assembly: AssemblyFileVersion("1.0.4.0")]
 
 // 安装 / 卸载一体的小安装器（每用户安装，不需要管理员权限）。
 //   Setup.exe                       图形界面安装
@@ -23,7 +23,7 @@ using Microsoft.Win32;
 static class Setup
 {
     const string AppName = "显卡屏幕控制";
-    const string Version = "1.0.3";
+    const string Version = "1.0.4";
     const string UninstallKey = @"Software\Microsoft\Windows\CurrentVersion\Uninstall\GpuLcdTool";
     const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
     const string PipeName = "GpuLcdTool";

@@ -8,7 +8,7 @@
 param([switch]$SkipUi)
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
-$ver = '1.0.3'
+$ver = '1.0.4'
 $csc = 'C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\Roslyn\csc.exe'
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 

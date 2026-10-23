@@ -16,6 +16,7 @@ const info = ref<LinksInfo | null>(null)
 
 const codexOn = ref(false)
 const claudeOn = ref(false)
+const dshOn = ref(false)
 const signalOn = ref(false)
 const dotMatrixOn = ref(false)
 const idleOffset = ref(0)
@@ -104,6 +105,7 @@ function apply(next: LinksInfo): void {
   syncing = true
   codexOn.value = next.codex
   claudeOn.value = next.claude
+  dshOn.value = next.dsh === true
   signalOn.value = next.signal
   dotMatrixOn.value = next.dotMatrix
   if (numbersTimer === null) {
@@ -234,6 +236,11 @@ watch(claudeOn, () => {
   writeLinks({ claude: claudeOn.value })
 })
 
+watch(dshOn, () => {
+  if (syncing) return
+  writeLinks({ dsh: dshOn.value })
+})
+
 watch(signalOn, () => {
   if (syncing) return
   writeLinks({ signal: signalOn.value })
@@ -307,6 +314,14 @@ onUnmounted(() => {
             <p class="row-help">Claude Code 的工作 / 等待 / 完成事件会触发对应动画。</p>
           </div>
           <Rocker v-model="claudeOn" />
+        </div>
+
+        <div class="row">
+          <div class="row-text">
+            <p class="row-label">接收 DeepSeek Harness 任务事件</p>
+            <p class="row-help">DeepSeek Harness 的工作 / 等待 / 完成事件会触发对应动画（需安装 dsh-plugin）。</p>
+          </div>
+          <Rocker v-model="dshOn" />
         </div>
 
         <div class="row">

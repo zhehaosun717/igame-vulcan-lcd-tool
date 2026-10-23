@@ -119,6 +119,7 @@ export interface LinkSession {
 export interface LinksInfo {
   codex: boolean
   claude: boolean
+  dsh: boolean
   signal: boolean
   dotMatrix: boolean
   idleOffsetMs: number
@@ -134,6 +135,7 @@ export interface LinksInfo {
 export interface SetLinksArgs {
   codex?: boolean
   claude?: boolean
+  dsh?: boolean
   signal?: boolean
   dotMatrix?: boolean
   idleOffsetMs?: number
