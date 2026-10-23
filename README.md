@@ -1,16 +1,17 @@
 # igame-vulcan-lcd-tool
 
-Windows 上的七彩虹 iGame 火神 LCD 3.0 侧屏控制工具：C# / WinForms 宿主 + Vue 3 / TypeScript / WebView2 界面。1.0.4 安装版和便携版已附带 LCD 厂商库及转换工具，无需另装 iGameCenter。源码开发环境仍可回退到本机安装的厂商库。
+Windows 上的七彩虹 iGame 火神 LCD 3.0 侧屏控制工具：C# / WinForms 宿主 + Vue 3 / TypeScript / WebView2 界面。1.0.5 安装版和便携版附带 LCD 厂商库及转换工具，无需另装 iGameCenter。源码开发环境仍可回退到本机安装的厂商库。
 
-本次同步的是当前自用版本，包含实际使用的 Codex、Claude Code 和 SignalRGB 联动；部分脚本仍按本机安装环境编写，并非通用的一键安装发行版。
+本目录为 GpuLcd 1.0.5 + DSH 插件 0.1.1 发布产物，包含 Codex、Claude Code、DeepSeek Harness 和 SignalRGB 联动修复。仅完成离线验证；不表示桌面已安装、生效或物理上屏。旧版本附件保持不变，不能视为已含本次修复。
 
 ## 下载
 
 在本私有仓库的 [Releases](https://github.com/zhehaosun717/igame-vulcan-lcd-tool/releases/latest) 下载：
 
-- `GpuLcd-Setup-1.0.4.exe`：每用户安装版。
-- `GpuLcd-1.0.4-portable.zip`：完整解压后运行其中的 `GpuLcd/GpuLcd.exe`。
-- `SHA256SUMS.txt`：安装包与便携包的校验值。
+- `GpuLcd-Setup-1.0.5.exe`：每用户安装版。
+- `GpuLcd-1.0.5-portable.zip`：完整解压后运行其中的 `GpuLcd/GpuLcd.exe`。
+- `dsh-gpulcd-status-0.1.1.zip`：独立插件，包含运行库、manifest、bundle patch、说明、契约记录与许可证。
+- `SHA256SUMS.txt`：上述三个最终文件的 SHA-256。
 
 保留 `vendor/` 目录和 exe 旁的 WebView2 DLL。包内包括 LCD / NVAPI 库、SAVI / FFmpeg、私有 x86 VC90 CRT，以及助手钩子和灯效模板。仍需 Windows x64 / .NET Framework 和兼容的显卡 USB 连接；WebView2 Runtime 未捆绑，缺少时尝试回退经典界面。SignalRGB 联动需另装 SignalRGB。
 
@@ -21,7 +22,7 @@ Windows 上的七彩虹 iGame 火神 LCD 3.0 侧屏控制工具：C# / WinForms 
 - 屏幕开关、亮度、不透明度、方向、监控页轮播。
 - 图片和动画转换、上传、播放与默认画面设置。
 - 自定义文字、实时数据、进度条和限时通知。
-- Codex / Claude Code 工作、等待、完成状态动画及各自灯光配色。
+- Codex / Claude Code / DeepSeek Harness 工作、等待、完成状态动画及各自灯光配色。
 - SignalRGB 默认彩虹、状态灯效、时间偏移和速率校准。
 - 同步到 Dot Matrix Studio 点阵屏：同色状态图标，夜间熄灯时一起熄灭；两个助手同时工作时，显示的那个至少保持 15 秒，不再来回跳。
 - 一键关闭屏幕和灯光，恢复后继续原状态。
@@ -50,7 +51,6 @@ Windows 上的七彩虹 iGame 火神 LCD 3.0 侧屏控制工具：C# / WinForms 
 
 ```powershell
 cd ui
-npm ci
 npm run build
 cd ..
 .\build.cmd
@@ -64,9 +64,16 @@ cd ..
 
 `integration/Hook.cs` 编译为 `GpuLcdHook.exe`。参考 `integration/hooks.example.json` 配置 Claude Code；Codex 示例为 `integration/codex-hooks.example.json`。替换示例安装路径，并将事件项合并到已有配置，避免覆盖其他钩子。动画上传后分别命名为 `ccwork/ccask/ccdone.savi`、`cxwork/cxask/cxdone.savi` 和 `dswork/dsask/dsdone.savi`。
 
-DeepSeek Harness：不是钩子，而是一个 DSH 插件（`dsh-plugin/` 目录，随安装包和便携包附带）。它把 DSH 的会话状态翻译成同一套事件写进事件管道，client 为 `dsh`，所以不用另配钩子。安装见 `dsh-plugin/README.md`，屏上用 `dswork/dsask/dsdone.savi` 三张动画，配色是深蓝 / 金黄 / 青绿。有了它，Claude Code、Codex、DeepSeek Harness 三边可以同时驱动同一块屏幕，谁在忙就显示谁。
+DeepSeek Harness：不是钩子，而是一个 DSH 插件（`dsh-plugin/` 目录，随安装包和便携包附带）。它把 DSH 的会话状态翻译成同一套事件写进事件管道，client 为 `dsh`，所以不用另配钩子。部署说明见 [插件 README](dsh-plugin/README.md)。**插件 0.1.1 必须配套 GpuLcd >=1.0.5**；原子 `state=waiting` 恢复不适用于旧 1.0.4。旧插件 0.1.0 有中间件截断工具链的缺陷，不再建议使用。仅实际离线验证 DSH **0.2.1-rc.2**；元数据下限收紧为 `>=0.2.1-rc.2`，不再宣称 `>=0.1.7` 普遍兼容，未来版本仍需重新验证契约。Node.js 运行与开发下限保持 **24**。屏上用 `dswork/dsask/dsdone.savi` 三张动画，配色是深蓝 / 金黄 / 青绿。包内附带 `anims/dswork.gif`、`dsask.gif`、`dsdone.gif`；SAVI 转换后的实际上传须在用户后续授权的受控阶段完成，本轮不上传。有了它，Claude Code、Codex、DeepSeek Harness 三边可以同时驱动同一块屏幕，谁在忙就显示谁。
 
 点阵屏：联动页勾选「同步到 Dot Matrix Studio 点阵屏」（默认开）。工具从 `%APPDATA%\Dot Matrix Studio\agent-api.json` 读取本机 API 端口和令牌，状态变化时 POST 到 `/api/scene?source=hook`，每 15 秒核对一次屏上画面，Dot Matrix Studio 重启后自动补发；只走 127.0.0.1，不碰显卡屏串口。用了这项同步后，Dot Matrix Studio 自带的状态钩子就不要再挂在助手配置里，否则两边会抢屏。
+
+## 1.0.5 修复与验证范围
+
+- 插件中间件继续执行并原样返回 `next()`，保留下游拒绝/异常；完成提示只来自观察过有效步骤的成功 `turn/end`，不把 idle、取消、失败或空唤醒当成功。
+- 完整 OK 换行才计 ACK；单在途 FIFO、有界队列和 5 秒排队过期。未确认的启动按 15 秒心跳有界恢复；所有排队活跃事件在真正写入时读取当前状态，旧轮次不复活，等待原子恢复不先降级为工作。ACK 只证明接收/排队，不证明 UI 已应用或硬件已显示。
+- SignalRGB 增加 `dsh@working/waiting/done` 配色和 `client=dsh` 回执；同状态换来源也刷新。联动 UI 修复部分设置保存后的本地基线，显式 false/0 不丢失。
+- 未知来源不再静默归入 Codex；关闭来源清除旧状态。等待 > 工作 > 完成的优先级与同级来源至少 15 秒保持不变。Dot Matrix 协议已离线验证，本次不升级或打包 dot-motion-builder。
 
 ## 验证
 
@@ -77,7 +84,7 @@ node integration/test-effect.cjs
 
 `tests/` 下的 C# 单元测试需与对应状态机 / 完成读取 / 显示任务源码一起编译。`integration/run-webbridge-test.ps1` 是实机测试，会连接设备并要求托盘程序退出；日常源码检查不必运行它。该脚本依赖本机备份，不适用于直接在新机器运行。
 
-`python tools/verify-package.py` 在临时目录验证文件哈希、包内库加载、安装器内嵌资源与便携包一致性，以及独立 GIF→SAVI 转换。不会运行安装器或向屏幕写入指令。
+`python tools/verify-package.py` 在临时目录验证逐文件清单、版本、真实内嵌 UI 与新构建 dist、三份插件逐字节一致性、三条 SHA256SUMS、包内库加载、安装器 payload 与便携包一致性，以及独立 GIF→SAVI 转换。系统 python 不可用时请用现成可用的 Python 解释器，不要运行商店安装别名。不会运行安装器或向屏幕写入指令。
 
 ## 数据与运行限制
 

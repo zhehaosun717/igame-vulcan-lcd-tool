@@ -51,7 +51,8 @@ namespace GpuLcd {
   SignalReadClient signalBridge;
   string sharedState="idle"; bool signalOn;
   DateTime signalAckTime,lastSignalRead;
-  string signalAckState="",lastCanvasMarker="",lastSignalPreview="Auto";
+  string signalAckState="",signalAckClient="codex",lastCanvasMarker="",lastSignalPreview="Auto";
+  string SignalAckText { get { return "SignalRGB：灯效脚本已确认 "+(signalAckState=="idle" ? "" : ClientLabel(signalAckClient)+" / ")+signalAckState; } }
   bool signalReadBusy;
   void StartSignalBridge(){
    if(!linkCfg.Signal || signalReadBusy || (DateTime.UtcNow-lastSignalRead).TotalSeconds<3)return;
@@ -78,11 +79,10 @@ namespace GpuLcd {
        Log("SignalRGB 反向预览："+preview);demoState=preview;demoUntil=DateTime.UtcNow.AddSeconds(8);TickLinks();
       }
      }
-     var markers=System.Text.RegularExpressions.Regex.Matches(logs,@"GpuLcdState=(idle|working|waiting|done);seq=\d+");
-     if(markers.Count>0){
-      var marker=markers[markers.Count-1];
-      if(marker.Value!=lastCanvasMarker){lastCanvasMarker=marker.Value;signalAckState=marker.Groups[1].Value;signalAckTime=DateTime.UtcNow;}
-      signalStatus.Text="SignalRGB：灯效脚本已确认 "+signalAckState;
+     string marker,ackState,ackClient;
+     if(SignalProtocol.LatestAck(logs,out marker,out ackState,out ackClient)){
+      if(marker!=lastCanvasMarker){lastCanvasMarker=marker;signalAckState=ackState;signalAckClient=ackClient;signalAckTime=DateTime.UtcNow;}
+      signalStatus.Text=SignalAckText;
      }
     }));}catch{}
    });

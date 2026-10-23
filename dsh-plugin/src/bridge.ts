@@ -1,116 +1,165 @@
-/**
- * DeepSeek Harness 工作状态 → GpuLcd。
- *
- * GpuLcd 原本只认 Claude Code / Codex 的生命周期钩子：它的事件管道 GpuLcdEvents 收一行 JSON
- * {hook_event_name, session_id, turn_id, client}，再把状态合并成 工作中 / 等待授权 / 一轮结束，
- * 驱动显卡屏动画、SignalRGB 灯效和点阵屏。DSH 没有那种钩子，但有插件事件，所以这里把
- * DSH 的事件翻译成同一套词汇，client 用 "dsh"，GpuLcd 那边不必知道 DSH 内部长什么样。
- *
- * 映射：
- *   agent/status running            → UserPromptSubmit（一轮开始 = 开始工作）
- *   agent/status idle               → Stop（一轮结束）
- *   tools/pre-execute / post-execute → PreToolUse / PostToolUse（长回合里保持「工作中」）
- *   approval/request                → PermissionRequest（在等你点授权）→ 结束后回到工作
- *   user-questions/request          → PermissionRequest（在等你回答问题）→ 结束后回到工作
- *   agent/disposed                  → SessionEnd（会话关掉，立刻清掉它的状态）
- *
- * 不发送任何对话内容：只有事件类型、会话 id、轮次。
- */
-import { connect } from 'node:net'
+import { connect, type Socket } from 'node:net'
 
-/** 与 GpuLcd 的 integration/LinkEvent.cs 对应。 */
 export interface HookEventInput {
   hook_event_name: string
   session_id: string
   turn_id?: string
+  /** Atomic DSH UserPromptSubmit state; paired receiver required for waiting. */
+  state?: 'working' | 'waiting'
 }
-
+export type HookEventSource = HookEventInput | (() => HookEventInput | undefined)
 export interface BridgeOptions {
-  /** 管道名，GpuLcd 一侧固定为 GpuLcdEvents。 */
   pipeName?: string
-  /** 连接超时；GpuLcd 没运行时事件直接丢掉，不能拖慢会话。 */
   connectTimeoutMs?: number
-  /** 写入超时。 */
-  writeTimeoutMs?: number
-  /** 统计用：最近一次发送结果（供 /gpulcd-status 之类的自查看）。 */
-  onSent?: (result: { ok: boolean; error?: string; event: string }) => void
+  ackTimeoutMs?: number
+  maxPending?: number
+  maxQueueAgeMs?: number
+  onSent?: (result: { ok: boolean; error?: string; event: string }) => unknown
+  /** Dependency seam for isolated socket tests; never read from plugin configuration. */
+  connect?: (path: string) => Socket
 }
-
 export interface Bridge {
-  send(event: HookEventInput): Promise<boolean>
-  readonly stats: { sent: number; failed: number; lastError: string; lastEvent: string; lastAt: number }
+  send(event: HookEventSource): Promise<boolean>
+  readonly stats: { sent: number; failed: number; dropped: number; lastError: string; lastEvent: string; lastAt: number; pending: number; active: number; timers: number }
   dispose(): void
 }
+const bounded = (value: number | undefined, fallback: number, max: number) =>
+  typeof value === 'number' && Number.isFinite(value) ? Math.max(1, Math.min(max, Math.floor(value))) : fallback
 
-const DEFAULT_PIPE = 'GpuLcdEvents'
-
-/**
- * 往 GpuLcd 的事件管道写一行 JSON。
- * 用 node:net 直接连 \\.\pipe\<name>：不需要额外的原生依赖，超时自己控制，
- * GpuLcd 没开时也能立刻失败而不是挂住。
+/** One in-flight connection; FIFO with bounded pending count and age, no retries.
+ * Success means an exact OK line was read, NOT merely a successful socket.write.
+ * It acknowledges the receiver protocol, not physical hardware rendering.
  */
 export function createBridge(options: BridgeOptions = {}): Bridge {
-  const pipeName = options.pipeName ?? DEFAULT_PIPE
-  const connectTimeoutMs = options.connectTimeoutMs ?? 400
-  const writeTimeoutMs = options.writeTimeoutMs ?? 400
-  const stats = { sent: 0, failed: 0, lastError: '', lastEvent: '', lastAt: 0 }
+  const pipeName = options.pipeName ?? 'GpuLcdEvents'
+  const connectMs = bounded(options.connectTimeoutMs, 400, 10000)
+  const ackMs = bounded(options.ackTimeoutMs, 400, 10000)
+  const maxPending = bounded(options.maxPending, 64, 1024)
+  const maxAge = bounded(options.maxQueueAgeMs, 5000, 60000)
+  const stats = { sent: 0, failed: 0, dropped: 0, lastError: '', lastEvent: '', lastAt: 0, pending: 0, active: 0, timers: 0 }
+  type Item = { event: string; payload: string; current?: () => HookEventInput | undefined; at: number; resolve: (ok: boolean) => void }
+  const queue: Item[] = []
   let disposed = false
-
-  const send = (event: HookEventInput): Promise<boolean> => {
-    if (disposed) return Promise.resolve(false)
-    const payload = JSON.stringify({
-      hook_event_name: event.hook_event_name,
-      session_id: event.session_id,
-      turn_id: event.turn_id ?? '',
-      client: 'dsh'
-    })
-    stats.lastEvent = event.hook_event_name
+  let cancelActive: (() => void) | undefined
+  let pumping = false
+  const report = (item: Item, ok: boolean, error?: string) => {
+    stats.lastEvent = item.event
     stats.lastAt = Date.now()
-    return new Promise<boolean>((resolve) => {
-      let settled = false
-      const finish = (ok: boolean, error?: string) => {
-        if (settled) return
-        settled = true
-        if (ok) stats.sent++
-        else {
-          stats.failed++
-          stats.lastError = error ?? 'unknown'
-        }
-        options.onSent?.({ ok, error, event: event.hook_event_name })
-        resolve(ok)
-      }
-      const socket = connect(`\\\\.\\pipe\\${pipeName}`)
-      const timer = setTimeout(() => {
-        socket.destroy()
-        finish(false, 'connect timeout')
-      }, connectTimeoutMs)
-      socket.once('connect', () => {
-        clearTimeout(timer)
-        const writeTimer = setTimeout(() => {
-          socket.destroy()
-          finish(false, 'write timeout')
-        }, writeTimeoutMs)
-        socket.once('error', (error: Error) => {
-          clearTimeout(writeTimer)
-          finish(false, error.message)
-        })
-        // GpuLcd 读完一行才回 OK；不等它也能用，读一下避免对端写完就断。
-        socket.write(payload + '\n', () => {
-          clearTimeout(writeTimer)
-          socket.end()
-          finish(true)
-        })
-      })
-      socket.once('error', (error: Error) => {
-        clearTimeout(timer)
-        finish(false, error.message)
-      })
-    })
+    if (ok) stats.sent++
+    else { stats.failed++; stats.lastError = error ?? 'unknown' }
+    item.resolve(ok)
+    // User callbacks, including async callbacks, are strictly off the outcome path.
+    try { void Promise.resolve(options.onSent?.({ ok, error, event: item.event })).catch(() => {}) } catch {}
   }
-
+  const serialize = (event: HookEventInput) => {
+    const payload = JSON.stringify({ hook_event_name: event.hook_event_name, session_id: event.session_id, turn_id: event.turn_id ?? '', client: 'dsh', ...(event.state === undefined ? {} : { state: event.state }) }) + '\n'
+    if (Buffer.byteLength(payload) > 4096) throw new Error('event too large')
+    return payload
+  }
+  const transmit = (item: Item) => new Promise<void>((resolve) => {
+    let socket: Socket | undefined
+    let timer: ReturnType<typeof setTimeout> | undefined
+    let settled = false
+    let response = ''
+    const clearTimer = () => {
+      if (timer !== undefined) { clearTimeout(timer); timer = undefined; stats.timers-- }
+    }
+    const finish = (ok: boolean, error?: string) => {
+      if (settled) return
+      settled = true
+      clearTimer()
+      cancelActive = undefined
+      stats.active = 0
+      // Leave the contained error handler attached until close: late errors from
+      // destroy/write must never become uncaught 'error' events.
+      socket?.removeAllListeners('connect')
+      socket?.removeAllListeners('data')
+      socket?.removeAllListeners('end')
+      socket?.removeAllListeners('close')
+      socket?.destroy()
+      report(item, ok, error)
+      resolve()
+    }
+    const arm = (ms: number, error: string) => {
+      clearTimer()
+      stats.timers++
+      timer = setTimeout(() => finish(false, error), ms)
+      timer.unref()
+    }
+    cancelActive = () => finish(false, 'disposed')
+    stats.active = 1
+    try {
+      socket = (options.connect ?? connect)(
+        process.platform === 'win32' ? '\\\\.\\pipe\\' + pipeName : pipeName)
+      socket.on('error', (error: Error) => finish(false, error.message))
+      socket.once('close', () => finish(false, 'closed before OK'))
+      socket.once('end', () => finish(false, 'ended before OK'))
+      socket.on('data', (data: Buffer) => {
+        response += data.toString('utf8')
+        if (response.length > 1024) return finish(false, 'oversized acknowledgement')
+        const newline = response.indexOf('\n')
+        if (newline >= 0) {
+          const line = response.slice(0, newline).replace(/\r$/, '')
+          finish(line === 'OK', line === 'OK' ? undefined : 'receiver rejected: ' + line)
+        }
+      })
+      arm(connectMs, 'connect timeout')
+      socket.once('connect', () => {
+        arm(ackMs, 'ack timeout') // bounds writing plus reception, even if write never calls back
+        try {
+          let payload = item.payload
+          if (item.current) {
+            const current = item.current()
+            if (!current) { finish(false, 'stale snapshot'); return }
+            item.event = current.hook_event_name
+            payload = serialize(current) // after connect, immediately before write
+          }
+          socket!.write(payload, (error?: Error | null) => { if (error) finish(false, error.message) })
+        }
+        catch (error) { finish(false, String(error)) }
+      })
+    } catch (error) { finish(false, String(error)) }
+  })
+  const pump = async () => {
+    if (pumping) return
+    pumping = true
+    try {
+      while (!disposed && queue.length) {
+        const item = queue.shift()!
+        stats.pending = queue.length
+        if (Date.now() - item.at > maxAge) { stats.dropped++; report(item, false, 'queue expired'); continue }
+        await transmit(item)
+      }
+    } finally { pumping = false }
+  }
   return {
-    send,
     stats,
-    dispose() { disposed = true }
+    send(event) {
+      if (disposed) return Promise.resolve(false)
+      // Plain inputs snapshot at enqueue; guarded sources resolve at write time.
+      // Both serialization paths convert failure to a settled false result.
+      return new Promise<boolean>((resolve) => {
+        let payload = ''
+        const current = typeof event === 'function' ? event : undefined
+        try { if (!current) payload = serialize(event as HookEventInput) }
+        catch (error) {
+          report({ event: 'invalid', payload: '', at: Date.now(), resolve }, false, String(error)); return
+        }
+        if (queue.length >= maxPending) {
+          stats.dropped++
+          report(queue.shift()!, false, 'queue overflow') // retain newer state; retained events remain FIFO
+        }
+        queue.push({ event: current ? 'snapshot' : (event as HookEventInput).hook_event_name, payload, current, at: Date.now(), resolve })
+        stats.pending = queue.length
+        void pump().catch(() => { /* transmit contains all socket failures */ })
+      })
+    },
+    dispose() {
+      if (disposed) return
+      disposed = true
+      cancelActive?.()
+      for (const item of queue.splice(0)) report(item, false, 'disposed')
+      stats.pending = 0
+    }
   }
 }

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { bridge } from '../bridge'
+import { mergeLinks } from '../bridge/links'
 import type { LinkDemoState, LinksInfo, SetLinksArgs } from '../bridge/types'
 import { useDeviceStore } from '../stores/device'
 import LinksStatusCard from '../components/LinksStatusCard.vue'
@@ -134,16 +135,7 @@ function clearNumbersTimer(): void {
 
 function mergeLocal(args: SetLinksArgs): void {
   if (!info.value) return
-  const next: LinksInfo = { ...info.value }
-  if (args.codex !== undefined) next.codex = args.codex
-  if (args.claude !== undefined) next.claude = args.claude
-  if (args.signal !== undefined) next.signal = args.signal
-  if (args.dotMatrix !== undefined) next.dotMatrix = args.dotMatrix
-  if (args.idleOffsetMs !== undefined) next.idleOffsetMs = args.idleOffsetMs
-  if (args.idleRatePercent !== undefined) {
-    next.idleRatePercent = args.idleRatePercent
-  }
-  info.value = next
+  info.value = mergeLinks(info.value, args)
 }
 
 function writeLinks(args: SetLinksArgs): void {

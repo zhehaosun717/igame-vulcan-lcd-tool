@@ -1,4 +1,4 @@
-﻿# 小屏幕与助手 / SignalRGB 联动
+# 小屏幕与助手 / SignalRGB 联动
 
 已安装 Codex 和 助手 B 状态钩子、CodexLCD 本地灯效。
 配置备份位于 %APPDATA%/GpuLcdTool/integration-backups/20261007-001205。
@@ -10,6 +10,26 @@ SignalRGB 选中免费本地灯效 CodexLCD；“打开 SignalRGB 灯效库”�
 工作为蓝色，等待操作为橙色，本轮结束为绿色。Codex 结束提示 30 秒，助手 B 保留 120 秒。
 结束后恢复默认动画；多个任务并行时等待操作优先，然后工作，最后结束提示。
 “本轮结束”不代表任务成功。30 分钟没有事件的状态自动过期。
+
+## DeepSeek Harness 来源协议
+
+GpuLcd 汇总 Codex、Claude Code 和 DeepSeek Harness 的会话状态，再统一转发给 LCD、SignalRGB 和 Dot Matrix Studio。DSH 插件不要同时直发第二路点阵画面，以免绕过汇总优先级并抢屏。
+
+| 来源 | 工作 / 等待 / 结束事件 | SignalRGB 配色 | 结束提示时长 |
+| --- | --- | --- | --- |
+| Codex | `working` / `waiting` / `done`（保留裸事件） | 原蓝色 / 橙色 / 翠绿呼吸 | 30 秒 |
+| Claude Code | `claude@working` / `claude@waiting` / `claude@done` | 原陶橙 / 琥珀呼吸 / 草绿渐亮 | 120 秒 |
+| DeepSeek Harness | `dsh@working` / `dsh@waiting` / `dsh@done` | 深蓝 `#4D6BFE` / 橙金 `#FF9F45` / 青绿 `#2ED3B7` | 30 秒 |
+
+灯效接受原文及 URL 编码事件，发送者仍必须为 `GpuLcdTool`。非空闲状态按来源配色；同状态切换来源也会生效，同来源的结束心跳不重启动画。`idle`、`idle@epoch@offset[@percent]`、`sleep` 和 `wake` 协议不变，熄灯始终优先于任务和手动预览。
+
+回执保留 `GpuLcdState=状态;seq=序号` 旧格式；Claude/DSH 追加 `;client=claude` 或 `;client=dsh`。GpuLcd 连同来源一起去重并显示确认来源；不带来源的旧回执仍表示 Codex。
+
+DSH 事件的 `UserPromptSubmit` 可带 `state: "waiting"`，一次替换旧轮次并直接进入等待，供插件恢复丢失的启动事件；不必先发 working 再发等待。`state` 省略、空值（含 null）或 `"working"` 沿用工作启动，其他非空值拒绝该次 DSH 启动。此扩展仅对 `client: "dsh"` 的启动事件有效，其他客户端和非启动事件忽略它；原有非启动事件的轮次与关闭检查、优先级和 15 秒来源保持规则不变。
+
+事件入口只接收精确小写的 `codex`、`claude`、`dsh`。未知来源、大小写变体、空字符串和显式 null 均不落入 Codex；旧事件省略 `client` 字段时仍使用默认 Codex。关闭某客户端会清除其已合并状态，重新开启只接收新事件，不恢复旧任务。相同优先级的显示来源至少保持 15 秒；等待优先于工作，工作优先于结束。
+
+此修复仅通过离线状态机、脚本渲染和设置合并测试验证，未连接真实灯光或屏幕。部署仍需另行安装新版 GpuLcd、更新 SignalRGB 本地模板，并在用户许可下验证真实事件与设备输出；本次不修改真实 DSH profile、不重启应用、不上传屏幕。
 
 ## 双向连接
 

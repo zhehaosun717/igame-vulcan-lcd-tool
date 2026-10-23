@@ -1,141 +1,226 @@
-/**
- * dsh-gpulcd-status：把 DSH 会话状态接到 GpuLcd（显卡屏 / SignalRGB 灯效 / 点阵屏）。
- *
- * 挂载后，本机 GpuLcd 托盘程序运行期间，DSH 会话会像 Claude Code / Codex 一样
- * 驱动那三样东西：工作中、等待你确认、一轮结束。开关在 GpuLcd 的联动页
- * （「接收 DeepSeek Harness 任务事件」）。
- */
-import type { Context } from '@deepseek-ai/cordis'
-import { createBridge, type HookEventInput } from './bridge.js'
+import { randomUUID } from 'node:crypto'
+import { createBridge, type Bridge, type HookEventInput } from './bridge.js'
 
 export const name = 'dsh-gpulcd-status'
+export const inject = { optional: ['agents'] }
 
-/** 会话对象的最小结构面：只用 id 和轮次/目录，避免绑死 harness 内部类型。 */
-interface AgentLike {
-  id?: string
-  session?: { id?: string; header?: { cwd?: string } }
+/** Explicit projections of audited public contracts, not ambient Cordis shims.
+ * Additional fields are deliberately never inspected or sent. See CONTRACTS.md.
+ */
+export interface AgentLike { id: string; status?: string; session: { id: string } }
+interface Request { agent?: AgentLike; signal?: AbortSignal }
+interface SessionLike { id: string }
+interface SessionEvent { type: string; data: { turn?: number; reason?: { kind: string } } }
+type Next<T = unknown> = () => T | Promise<T>
+interface Events {
+  'agent/status': (payload: { agent: AgentLike; status: string }) => void
+  'agent/created': (payload: { agent: AgentLike }) => void
+  'agent/disposed': (payload: { agent: AgentLike }) => void
+  'session/event': (session: SessionLike, event: SessionEvent) => void
+  'tools/pre-execute': (request: Request, next: Next) => unknown
+  'approval/request': (request: Request, next: Next) => unknown
+  'user-questions/request': (request: Request, next: Next) => unknown
 }
-
-interface StatusPayload { agent?: AgentLike; status?: string }
-
-/** 取会话 id：agent 自身的 id 就是会话 id，agent/status 也带 session.id。 */
+export interface PluginContext {
+  on<K extends keyof Events>(event: K, listener: Events[K]): () => void
+  effect(callback: () => () => void): unknown
+  agents?: { list(): AgentLike[] }
+}
+export interface Config { pipeName?: string; heartbeatMs?: number }
 export function sessionIdOf(agent: unknown): string | undefined {
-  const a = agent as AgentLike | undefined
-  const id = a?.id ?? a?.session?.id
+  if (!agent || typeof agent !== 'object') return undefined
+  const value = agent as { id?: unknown; session?: { id?: unknown } }
+  const id = value.id ?? value.session?.id
   return typeof id === 'string' && id !== '' ? id : undefined
 }
 
-/** 每轮一个递增短 id，让 GpuLcd 能把同一会话的不同轮次分开（它按 turn_id 判断是否新的一轮）。 */
 export function createTurnTracker() {
-  const turns = new Map<string, { id: string; startedAt: number }>()
+  const turns = new Map<string, string>()
+  const epoch = randomUUID()
   let counter = 0
   return {
-    start(sessionId: string): string {
-      const id = 'dsh-' + (++counter).toString(36)
-      turns.set(sessionId, { id, startedAt: Date.now() })
-      return id
-    },
-    current(sessionId: string): string {
-      const entry = turns.get(sessionId)
-      return entry?.id ?? this.start(sessionId)
-    },
+    start(sessionId: string) { const id = 'dsh-' + epoch + '-' + (++counter).toString(36); turns.set(sessionId, id); return id },
+    current(sessionId: string) { return turns.get(sessionId) }, // reads must never create a turn
     has(sessionId: string) { return turns.has(sessionId) },
     end(sessionId: string) { turns.delete(sessionId) }
   }
 }
 
-export function apply(ctx: Context, config?: Record<string, unknown>): void {
-  const pipeName = typeof config?.pipeName === 'string' && config.pipeName !== '' ? config.pipeName : undefined
-  const bridge = createBridge({ pipeName })
+/** Dependency seam is not a config option: tests cannot accidentally open the real pipe. */
+export function attach(ctx: PluginContext, bridge: Bridge, config: Config = {}): () => void {
   const turns = createTurnTracker()
-  const open = new Map<string, number>()   // 每个会话正在等待的人数（授权 + 提问可以同时挂着）
-  const ctxAny = ctx as unknown as { effect?: (fn: () => () => void) => void; on: (name: string, fn: (...args: never[]) => unknown) => () => void }
-
-  const emit = (hook_event_name: string, sessionId: string | undefined, turn_id?: string) => {
-    if (sessionId === undefined) return
-    void bridge.send({ hook_event_name, session_id: sessionId, turn_id })
+  type Turn = { agent: AgentLike; id: string; waits: Map<symbol, () => void>; number?: number; stepped: boolean; startAck: boolean; startPending: boolean }
+  const active = new Map<string, Turn>()
+  const running = new Map<string, AgentLike>()
+  const closed = new WeakSet<object>()
+  const offs: Array<() => void> = []
+  let disposed = false
+  const safe = (fn: () => void) => { try { if (!disposed) fn() } catch {} }
+  const emit = (event: HookEventInput['hook_event_name'], session: string, turn: string): Promise<boolean> => {
+    try { return Promise.resolve(bridge.send({ hook_event_name: event, session_id: session, turn_id: turn })).catch(() => false) } catch { return Promise.resolve(false) }
   }
-
-  /** 进入等待：第一次挂起时告诉 GpuLcd「在等你」，最后一个挂起解除时回到工作中。 */
-  const beginWait = (sessionId: string) => {
-    const count = open.get(sessionId) ?? 0
-    open.set(sessionId, count + 1)
-    if (count === 0) emit('PermissionRequest', sessionId, turns.current(sessionId))
-  }
-  const endWait = (sessionId: string) => {
-    const count = (open.get(sessionId) ?? 0) - 1
-    if (count > 0) { open.set(sessionId, count); return }
-    open.delete(sessionId)
-    emit('PreToolUse', sessionId, turns.current(sessionId))
-  }
-
-  const register = (name: string, fn: (...args: never[]) => unknown) => {
-    const off = ctxAny.on(name, fn as (...args: never[]) => unknown)
-    return off
-  }
-
-  const disposers: Array<() => void> = []
-
-  // 一轮的开始与结束：running → 开始（新 turn_id），idle → Stop。
-  disposers.push(register('agent/status', (payload: StatusPayload) => {
-    const sessionId = sessionIdOf(payload?.agent)
-    if (sessionId === undefined) return
-    if (payload.status === 'running') {
-      if (!turns.has(sessionId)) {
-        const turn = turns.start(sessionId)
-        emit('UserPromptSubmit', sessionId, turn)
-      } else {
-        emit('PreToolUse', sessionId, turns.current(sessionId))
-      }
-      return
+  const refresh = (session: string, turn: Turn) => {
+    // Every active-state observation is a guarded current snapshot, not an
+    // enqueue-time status. Earlier work/wait requests must not invert a newer
+    // state or recreate a closed/replaced generation when delivery is delayed.
+    const current = () => disposed || active.get(session) !== turn ? undefined : {
+      hook_event_name: turn.waits.size ? 'PermissionRequest' : 'PreToolUse',
+      session_id: session, turn_id: turn.id
     }
-    if (payload.status === 'idle') {
-      const turn = turns.current(sessionId)
-      open.delete(sessionId)
-      turns.end(sessionId)
-      emit('Stop', sessionId, turn)
-    }
-  }))
-
-  // 工具调用：长回合里让「工作中」保持新鲜（GpuLcd 30 分钟没有事件就把状态忘了）。
-  disposeToolEvents()
-  function disposeToolEvents() {
-    disposers.push(register('tools/pre-execute', (payload: { agent?: AgentLike } | undefined) => {
-      const sessionId = sessionIdOf(payload?.agent)
-      if (sessionId !== undefined) emit('PreToolUse', sessionId, turns.current(sessionId))
-      return undefined
-    }))
+    try { void Promise.resolve(bridge.send(current)).catch(() => {}) } catch {}
   }
-
-  // 等你确认：授权请求和提问都算。处理链必须放行（return next() 的结果）。
-  disposers.push(register('approval/request', (request: { agent?: AgentLike } | undefined, next: () => Promise<unknown>) => {
-    const sessionId = sessionIdOf(request?.agent)
-    if (sessionId === undefined) return next()
-    beginWait(sessionId)
-    return Promise.resolve(next()).finally(() => endWait(sessionId))
+  const sendStart = (session: string, turn: Turn) => {
+    if (turn.startPending || turn.startAck) return
+    turn.startPending = true
+    // Resolve state at actual serialization, not enqueue time. A queued old
+    // Turn must not resurrect after idle/dispose/new generation.
+    const current = () => disposed || active.get(session) !== turn ? undefined : {
+      hook_event_name: 'UserPromptSubmit', session_id: session, turn_id: turn.id,
+      state: turn.waits.size ? 'waiting' as const : 'working' as const
+    }
+    let sent: Promise<boolean>
+    try { sent = Promise.resolve(bridge.send(current)).catch(() => false) } catch { sent = Promise.resolve(false) }
+    void sent.then(ok => {
+      if (active.get(session) !== turn) return
+      turn.startPending = false
+      turn.startAck = ok
+    })
+  }
+  const start = (agent: AgentLike): Turn | undefined => {
+    const session = sessionIdOf(agent)
+    if (!session || closed.has(agent)) return
+    let turn = active.get(session)
+    if (turn?.agent === agent) return turn
+    if (turn) {
+      active.delete(session)
+      for (const release of turn.waits.values()) release()
+      turn.waits.clear()
+      emit('SessionEnd', session, turn.id)
+    }
+    turn = { agent, id: turns.start(session), waits: new Map(), stepped: false, startAck: false, startPending: false }
+    active.set(session, turn)
+    sendStart(session, turn)
+    return turn
+  }
+  const finish = (session: string, turn: Turn, completed: boolean) => {
+    if (active.get(session) !== turn) return
+    active.delete(session)
+    turns.end(session)
+    for (const release of [...turn.waits.values()]) release()
+    turn.waits.clear()
+    emit(completed ? 'Stop' : 'SessionEnd', session, turn.id)
+  }
+  const observe = (request: Request): { session: string; turn: Turn } | undefined => {
+    const agent = request?.agent
+    const session = sessionIdOf(agent)
+    if (!session || !agent || closed.has(agent)) return
+    let turn = active.get(session)
+    // Middleware is telemetry only: late tool/wait callbacks never open turns.
+    if (turn?.agent !== agent) return
+    return { session, turn }
+  }
+  offs.push(ctx.on('agent/status', (payload) => safe(() => {
+    const agent = payload.agent
+    const session = sessionIdOf(agent)
+    if (!session || closed.has(agent)) return
+    if (payload.status === 'running') { running.set(session, agent); const turn = start(agent); if (turn) refresh(session, turn) }
+    else if (payload.status === 'idle') {
+      if (running.get(session) === agent) running.delete(session)
+      const turn = active.get(session)
+      if (turn?.agent === agent) finish(session, turn, false) // idle alone is not proof of success
+    }
+  })))
+  offs.push(ctx.on('agent/created', ({ agent }) => safe(() => { if (agent.status === 'running') { running.set(agent.id, agent); start(agent) } })))
+  offs.push(ctx.on('agent/disposed', ({ agent }) => safe(() => {
+    if (closed.has(agent)) return
+    closed.add(agent)
+    const session = sessionIdOf(agent)
+    if (!session) return
+    if (running.get(session) === agent) running.delete(session)
+    const turn = active.get(session)
+    if (turn?.agent === agent) finish(session, turn, false)
+    else if (!turn) emit('SessionEnd', session, '')
+  })))
+  offs.push(ctx.on('session/event', (session, event) => safe(() => {
+    let turn = active.get(session.id)
+    const agent = running.get(session.id)
+    if (!turn && event.type === 'turn/start' && agent?.session === session) turn = start(agent)
+    // Session identity prevents an old session instance from ending a resumed
+    // instance with the same id. Real agents carry this exact Session object.
+    if (!turn || turn.agent.session !== session) return
+    if (event.type === 'turn/start') {
+      if (turn.number !== undefined && turn.number !== event.data.turn) {
+        finish(session.id, turn, false)
+        const next = start(turn.agent)
+        if (next) next.number = event.data.turn
+      } else turn.number = event.data.turn
+    } else if (event.type === 'step/start' && (turn.number === undefined || turn.number === event.data.turn)) {
+      turn.number = event.data.turn
+      turn.stepped = true
+    } else if (event.type === 'turn/end' && (turn.number === undefined || turn.number === event.data.turn)) {
+      finish(session.id, turn, turn.stepped && event.data.reason?.kind === 'completed')
+    }
+  })))
+  // Never synthesize allow: preserve exactly the original downstream return
+  // (including Promise identity here), synchronous throws and async rejections.
+  offs.push(ctx.on('tools/pre-execute', (request, next) => {
+    safe(() => { const state = observe(request); if (state) refresh(state.session, state.turn) })
+    return next()
   }))
-
-  disposers.push(register('user-questions/request', (request: { agent?: AgentLike } | undefined, next: () => Promise<unknown>) => {
-    const sessionId = sessionIdOf(request?.agent)
-    if (sessionId === undefined) return next()
-    beginWait(sessionId)
-    return Promise.resolve(next()).finally(() => endWait(sessionId))
-  }))
-
-  // 会话关掉：清掉状态，别让屏幕一直停在「本轮结束」。
-  disposers.push(register('agent/disposed', (agent: AgentLike | undefined) => {
-    const sessionId = sessionIdOf(agent)
-    if (sessionId === undefined) return undefined
-    open.delete(sessionId)
-    turns.end(sessionId)
-    emit('SessionEnd', sessionId, '')
-    return undefined
-  }))
-
+  const wait = (request: Request, next: Next): unknown => {
+    let state: ReturnType<typeof observe>
+    const token = Symbol('wait')
+    let released = false
+    const release = () => {
+      if (released) return
+      released = true
+      try { request?.signal?.removeEventListener('abort', release) } catch {}
+      safe(() => {
+        if (!state || active.get(state.session) !== state.turn || !state.turn.waits.delete(token)) return
+        if (!state.turn.waits.size) refresh(state.session, state.turn)
+      })
+    }
+    safe(() => {
+      state = observe(request)
+      if (!state || request?.signal?.aborted) return
+      state.turn.waits.set(token, release)
+      refresh(state.session, state.turn)
+      request?.signal?.addEventListener('abort', release, { once: true })
+    })
+    try {
+      const result = next()
+      if (result && typeof (result as PromiseLike<unknown>).then === 'function') return Promise.resolve(result).finally(release)
+      release()
+      return result
+    } catch (error) { release(); throw error }
+  }
+  offs.push(ctx.on('approval/request', wait))
+  offs.push(ctx.on('user-questions/request', wait))
+  // Recover a missing start at most once per heartbeat until transport ACK.
+  // Once ACKed, ordinary state heartbeats suffice after receiver ClearClient/restart.
+  const heartbeatMs = typeof config.heartbeatMs === 'number' && Number.isFinite(config.heartbeatMs)
+    ? Math.max(10, Math.min(300000, config.heartbeatMs)) : 15000
+  const heartbeat = setInterval(() => safe(() => {
+    for (const [session, turn] of active) {
+      if (!turn.startAck) sendStart(session, turn)
+      else refresh(session, turn)
+    }
+  }), heartbeatMs)
+  heartbeat.unref()
+  safe(() => { for (const agent of ctx.agents?.list() ?? []) if (agent.status === 'running') { running.set(agent.id, agent); start(agent) } })
   const cleanup = () => {
-    for (const off of disposers.splice(0)) { try { off() } catch { /* 卸载时忽略 */ } }
-    bridge.dispose()
+    if (disposed) return
+    disposed = true
+    clearInterval(heartbeat)
+    for (const turn of active.values()) for (const release of turn.waits.values()) release()
+    active.clear()
+    running.clear()
+    for (const off of offs.splice(0)) { try { off() } catch {} }
+    try { bridge.dispose() } catch {}
   }
-  if (ctxAny.effect) ctxAny.effect(() => cleanup)
-  else ctx.on('dispose', cleanup)
+  ctx.effect(() => cleanup)
+  return cleanup
+}
+export function apply(ctx: PluginContext, config: Config = {}): void {
+  attach(ctx, createBridge({ pipeName: typeof config.pipeName === 'string' && config.pipeName ? config.pipeName : undefined }), config)
 }

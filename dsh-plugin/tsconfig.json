@@ -6,11 +6,11 @@
     "outDir": "lib",
     "rootDir": "src",
     "strict": true,
-    "skipLibCheck": true,
+    "skipLibCheck": false,
+    "types": ["node"],
     "declaration": false
   },
   "include": [
-    "src/**/*.ts",
-    "types/**/*.d.ts"
+    "src/**/*.ts"
   ]
 }

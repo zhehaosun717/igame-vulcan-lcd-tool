@@ -133,7 +133,7 @@ namespace GpuLcd {
                             var ev = new JavaScriptSerializer().Deserialize<LinkEvent>(line);
                             if (ev == null || ev.session_id == null || ev.session_id.Length > 200) continue;
                             BeginInvoke(new Action(() => {
-                                if (ev.client=="claude" ? linkCfg.Claude : ev.client=="dsh" ? linkCfg.Dsh : linkCfg.Codex) {
+                                if (LinkState.ClientEnabled(ev.client, linkCfg.Codex, linkCfg.Claude, linkCfg.Dsh)) {
                                     receivedHookEvents++;lastHookEvent=ev.client+"/"+ev.hook_event_name;
                                     if(ev.client=="codex" && !completions.Track(ev)) {
                                         if(ev.hook_event_name=="UserPromptSubmit")Log("未纳入屏幕联动：Codex 会话缺少可跟踪的记录路径 session="+ev.session_id);
@@ -187,10 +187,10 @@ namespace GpuLcd {
             sharedState=state; signalOn=linkCfg.Signal;
             if(!signalOn && signalBridge!=null){var old=signalBridge;signalBridge=null;old.Dispose();}
             StartSignalBridge();
-            if (linkCfg.Signal && (now-signalAckTime).TotalSeconds<4) signalStatus.Text="SignalRGB：灯效脚本已确认 "+signalAckState;
+            if (linkCfg.Signal && (now-signalAckTime).TotalSeconds<4) signalStatus.Text=SignalAckText;
             if (!linkCfg.Signal && !linkCfg.NightMode && !signalWakePending) { signalStatus.Text="SignalRGB：同步未开启"; return; }
-            string signalEvent=linkCfg.NightMode?"sleep":signalWakePending?"wake":state=="idle" && playing==cfg.Current && idlePlaybackEpoch>0
-                ? "idle@"+idlePlaybackEpoch.ToString(System.Globalization.CultureInfo.InvariantCulture)+"@"+linkCfg.IdleOffsetMs.ToString(System.Globalization.CultureInfo.InvariantCulture)+"@"+Math.Max(95m,Math.Min(105m,linkCfg.IdleRatePercent)).ToString("0.00",System.Globalization.CultureInfo.InvariantCulture) : client=="claude" && state!="idle" ? "claude@"+state : state;
+            string signalEvent=SignalProtocol.Event(state, client, linkCfg.NightMode, signalWakePending,
+                playing==cfg.Current ? idlePlaybackEpoch : 0, linkCfg.IdleOffsetMs, linkCfg.IdleRatePercent);
             if (signalBusy || (now-lastSignalTry).TotalSeconds < (signalApplied==signalEvent ? 20 : .1)) return;
             signalBusy=true; lastSignalTry=now;
             Task.Run(() => {

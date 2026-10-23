@@ -1,17 +1,26 @@
 {
   "name": "dsh-gpulcd-status",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "把 DeepSeek Harness 会话的工作状态（工作中 / 等待你确认 / 一轮结束）发给 GpuLcd，驱动显卡屏动画、SignalRGB 灯效和 Dot Matrix Studio 点阵屏。",
   "type": "module",
   "main": "./lib/index.js",
+  "scripts": {
+    "build": "node build.mjs",
+    "build:check": "node build.mjs --check",
+    "test": "node --test test/index.test.mjs test/bridge.test.mjs test/recovery.test.mjs test/recovery-pipe.test.mjs test/queued-state.test.mjs",
+    "test:contract": "node --test test/contract.test.mjs",
+    "typecheck:isolated": "node test/typecheck.mjs"
+  },
   "engines": {
-    "dsh": ">=0.1.7-0"
+    "node": ">=24",
+    "dsh": ">=0.2.1-rc.2"
   },
   "files": [
     "lib",
     "cordis.patch.yml",
     "dsh.plugin.json",
-    "README.md"
+    "README.md",
+    "CONTRACTS.md"
   ],
   "dsh": {
     "bundle": {

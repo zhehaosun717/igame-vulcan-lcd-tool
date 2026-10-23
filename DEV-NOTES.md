@@ -1,4 +1,4 @@
-# 开发说明（GpuLcd 1.0.4）
+# 开发说明（GpuLcd 1.0.5）
 
 ## 结构
 - **C# 宿主**（WinForms，.NET Framework，`csc` 编译）：唯一允许写串口的一方。`GpuLcd.cs` 主逻辑；`WebUi.cs` 是新界面的桥；`Integrations.cs` / `Widgets.cs` / `NightMode.cs` 等是各功能。
@@ -11,7 +11,7 @@
 |---|---|
 | 只重编 C#（含嵌入已有 dist） | `build.cmd` |
 | 改了前端后 | `cd ui && npx vue-tsc --noEmit && npm run build`，再 `build.cmd` |
-| 一键出安装包 + 便携版 | `.\package.ps1`（加 `-SkipUi` 复用现有 dist）→ `release\` |
+| 准备安装包 + 便携版 + 插件 0.1.1 | `.\package.ps1`（强制重建 UI，检查插件 src/lib）→ `release\` |
 | 真机命令层测试（107 项） | `.\integration\run-webbridge-test.ps1`（会请托盘程序先退出；测后自行重启） |
 | 重新生成图标 | `.\tools\make-icon.ps1` |
 
@@ -32,6 +32,17 @@
 - 提示词里**明令禁止**启动 dev server（会卡死会话），只许 `vue-tsc` + `vite build`；并行时各自构建到 `--outDir .tmp-build-X`。
 - 限定可改的文件范围，事后用时间戳 / 快照核对是否越界，并自己重跑类型检查和构建。
 - 守则在 `ui\AGENTS.md`，提示词和汇报留在 `ui\docs\worker*-*.txt`。
+
+## 1.0.5 发布准备（不部署）
+
+- 固定宿主 1.0.5、插件 0.1.1；插件必须使用 GpuLcd >=1.0.5，旧 1.0.4 不保证原子 waiting 恢复。旧插件 0.1.0 有中间件截断缺陷，不再建议使用。
+- 仅离线验证 DSH 0.2.1-rc.2；package/manifest 下限同为 >=0.2.1-rc.2、Node >=24，未来 DSH 仍须复验真实 waterfall/生命周期契约。
+- 用已有依赖执行 `.\package.ps1`：强制重建 UI/dist 并嵌进新 exe，`node dsh-plugin/build.mjs --check` 不改冻结 lib；不安装依赖、不运行宿主/安装器、不碰真实 profile。
+- 打包以白名单复制插件运行库、package、manifest、patch、README、CONTRACTS 和根 LICENSE；独立插件 zip 与两种宿主包逐文件相同。所有生成 JSON 为 UTF-8 无 BOM。旧同名产物/校验和先复制进唯一的 release/backups 子目录，不覆盖旧备份；旧版附件不变。
+- 用可用的 Python 运行 `tools/verify-package.py`，核验完整清单、assembly/file 版本、真实内嵌 UI 与刚重建 dist、独立插件相等、三条 SHA256SUMS、厂商库加载和 TEMP 转换。反射读取资源，不执行宿主或安装器入口。
+- 离线回归包括完整 52 插件测试、Link 250 / Completion 25 / DotMatrix 67 / Display 15 / VendorRuntime 5 断言、灯效脚本和 UI 合并回归。DotMatrixTests 仅随机端口 fake API。不得用 live 脚本替代。
+- 灯效模板支持 dsh@ 状态与来源回执；UI 部分保存基线、unknown-source 拒绝、15 秒同级来源保持见本版 release notes。只验证离线逻辑，不声称实际灯效/屏幕生效。GIF 随包；SAVI 后续经用户批准受控上传。dot-motion-builder 版本与包不变。
+- 本阶段不 commit/push/tag、不操作 GitHub、不修改真实安装；发布由协调者执行。
 
 ## 未做 / 以后
 - 从屏幕删除文件（需要 C# 原生确认框 + 协议）。

@@ -108,7 +108,7 @@ const nightCtx={fillRect(){nightFrames.push(this.fillStyle)},createLinearGradien
 const nightSandbox={document:{getElementById(){return {getContext(){return nightCtx}}}},window:{requestAnimationFrame(){}},console:{log(){}},Date:{now:()=>nightTime},Math,previewState:'Auto',intensity:100,localStorage:{getItem:k=>store[k],setItem:(k,v)=>store[k]=v}};
 vm.createContext(nightSandbox);vm.runInContext(code,nightSandbox);
 nightSandbox.onCanvasApiEvent({sender:'GpuLcdTool',event:'sleep'});
-for(const ev of ['working','waiting','done','idle','claude@working','claude@waiting','claude@done']){
+for(const ev of ['working','waiting','done','idle','claude@working','claude@waiting','claude@done','dsh@working','dsh@waiting','dsh@done']){
  nightSandbox.onCanvasApiEvent({sender:'GpuLcdTool',event:ev});nightSandbox.previewState='Working';nightTime+=60000;
  nightFrames=[];nightSandbox.update();assert.deepEqual(nightFrames,['rgb(0,0,0)']);
 }
@@ -138,3 +138,38 @@ assert.deepEqual(baseCC(),[96,200,96]);ccTime+=20000;sendCC('claude@done');
 assert.deepEqual(baseCC(),[96,200,96],'Done heartbeat must not restart fade-in');
 sendCC('done');assert.equal(cc.taskClient,'codex');assert.notDeepEqual(baseCC(),[96,200,96]);
 console.log('PASS Claude terracotta/amber/soft green, source switching, warm glow and stable Done.');
+
+// DSH retains its own source at every state, including same-state client switches.
+let dsTime=20000,dsFrames=[],dsStops=[],dsLogs=[];
+const dsCtx={fillRect(){dsFrames.push(this.fillStyle)},createLinearGradient(){return {addColorStop(p,c){dsStops.push(c)}}}};
+const ds={document:{getElementById(){return {getContext(){return dsCtx}}}},window:{requestAnimationFrame(){}},
+ console:{log(t){dsLogs.push(t)}},Date:{now:()=>dsTime},Math,previewState:'Auto',intensity:100};
+vm.createContext(ds);vm.runInContext(code,ds);
+const sendDS=event=>ds.onCanvasApiEvent({sender:'GpuLcdTool',event});
+const baseDS=()=>{dsFrames=[];ds.update();return dsFrames[0].match(/\d+/g).map(Number);};
+const dsColors={working:[77,107,254],waiting:[255,159,69],done:[46,211,183]};
+for(const state of ['working','waiting','done']){
+ dsTime+=2000;sendDS('claude@'+state);const other=baseDS();
+ dsTime+=1;sendDS('dsh%40'+state);
+ assert.equal(ds.state,state);assert.equal(ds.taskClient,'dsh');assert.equal(ds.stateStarted,dsTime);
+ const actual=baseDS(),pulse=state==='working'?.65+.35*Math.sin(dsTime/1100):state==='waiting'?.65+.25*Math.sin(dsTime/700):.75+.25*Math.cos(dsTime/500);
+ assert.deepEqual(actual,dsColors[state].map(v=>Math.round(v*pulse)),state+' rendered DSH color');
+ assert.notDeepEqual(actual,other,state+' must not retain Claude color');
+ assert.match(dsLogs[dsLogs.length-1],new RegExp('GpuLcdState='+state+';seq=\\d+;client=dsh$'));
+ const started=ds.stateStarted;dsTime+=20000;const before=baseDS();sendDS('dsh@'+state);
+ assert.equal(ds.stateStarted,started,state+' heartbeat preserves animation epoch');
+ assert.deepEqual(baseDS(),before,state+' heartbeat does not replay animation');
+ sendDS(state);assert.equal(ds.taskClient,'codex');assert.notDeepEqual(baseDS(),before,state+' bare legacy event returns to Codex');
+}
+assert(dsStops.some(c=>c.includes('77,107,254')),'DSH work glow must be blue');
+sendDS('dsh@done');const preserved={state:ds.state,client:ds.taskClient,started:ds.stateStarted,updated:ds.updated,seq:ds.sequence};
+for(const invalid of ['DSH@done','dsh@idle','dsh@sleep','dsh@unknown','other@working','dsh@done@extra','%','%ZZ','x'.repeat(101),'',null,42]){
+ dsTime+=1;sendDS(invalid);
+ assert.deepEqual({state:ds.state,client:ds.taskClient,started:ds.stateStarted,updated:ds.updated,seq:ds.sequence},preserved,'reject '+invalid);
+}
+for(const malformed of [null,undefined,42,{},'dsh@working'])ds.onCanvasApiEvent(malformed);
+ds.onCanvasApiEvent({sender:'other',event:'dsh@working'});assert.equal(ds.taskClient,'dsh');assert.equal(ds.state,'done');
+ds.previewState='Working';ds.poll(dsTime);const preview=baseDS();
+assert.deepEqual(preview,[50,157,245].map(v=>Math.round(v*(.65+.35*Math.sin(dsTime/1100)))),'manual preview remains legacy Codex palette');
+ds.previewState='Auto';ds.poll(dsTime);dsTime+=45001;dsFrames=[];ds.update();assert.equal(ds.state,'idle','lost heartbeat safely returns to idle');
+console.log('PASS DSH three rendered colors, encoded source switching, per-client Done/heartbeat stability, malformed input and preview fallback.');
