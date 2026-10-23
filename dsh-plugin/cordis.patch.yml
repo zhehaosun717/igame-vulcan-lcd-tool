@@ -1,0 +1,5 @@
+# Bundle layer for dsh-gpulcd-status: mounts the plugin row.
+- insert:
+    - id: dsh-gpulcd-status
+      name: 'dsh-gpulcd-status'
+      config: {}

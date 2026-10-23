@@ -39,7 +39,7 @@ namespace GpuLcd {
             if (key == "idle") return "空闲";
             var parts = key.Split('/');
             string state = parts[0] == "working" ? "工作中" : parts[0] == "waiting" ? "等待授权" : "本轮结束";
-            return (parts.Length > 1 && parts[1] == "claude" ? "Claude Code / " : "Codex / ") + state;
+            return (parts.Length > 1 && parts[1] == "claude" ? "Claude Code / " : parts.Length > 1 && parts[1] == "dsh" ? "DeepSeek Harness / " : "Codex / ") + state;
         }
 
         void AddDotMatrixControls(FlowLayoutPanel flow) {

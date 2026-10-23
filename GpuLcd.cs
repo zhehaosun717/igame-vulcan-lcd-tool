@@ -1135,8 +1135,8 @@ namespace GpuLcd
         bool StayInTray(CloseReason reason)
         {
             return !reallyExit && reason == CloseReason.UserClosing
-                && (linkCfg.NightMode || cfg.Live || linkCfg.Codex || linkCfg.Claude || linkCfg.Signal)
-                && (connected || linkCfg.NightMode || (linkCfg.DotMatrix && (linkCfg.Codex || linkCfg.Claude)));
+                && (linkCfg.NightMode || cfg.Live || linkCfg.Codex || linkCfg.Claude || linkCfg.Dsh || linkCfg.Signal)
+                && (connected || linkCfg.NightMode || (linkCfg.DotMatrix && (linkCfg.Codex || linkCfg.Claude || linkCfg.Dsh)));
         }
 
         // 新界面窗口被用户关掉之后：留托盘或退出（与原经典窗口的规则一致）。上传中绝不退出。

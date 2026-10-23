@@ -13,6 +13,7 @@ using System.Windows.Forms;
 namespace GpuLcd {
     class LinkConfig {
         public bool Codex = true, Claude = true, Signal = false;
+        public bool Dsh = true;
         public int IdleOffsetMs = 0;
         public decimal IdleRatePercent = 100m;
         public bool NightMode = false;
@@ -24,7 +25,7 @@ namespace GpuLcd {
         bool completionBusy;
         readonly System.Windows.Forms.Timer linkTimer = new System.Windows.Forms.Timer { Interval = 1000 };
         LinkConfig linkCfg = new LinkConfig();
-        CheckBox chkCodex, chkClaude, chkSignal; NumericUpDown nudOffset, nudRate;   // 新界面通过这些控件驱动原有处理逻辑
+        CheckBox chkCodex, chkClaude, chkDsh, chkSignal; NumericUpDown nudOffset, nudRate;   // 新界面通过这些控件驱动原有处理逻辑
         Label linkStatus = new Label(), signalStatus = new Label();
         string linkShown = "idle", linkApplied = "idle", linkAppliedClient = "codex", signalApplied = "";
         string demoState = ""; DateTime demoUntil, lastLcdTry, lastSignalTry;
@@ -39,13 +40,16 @@ namespace GpuLcd {
             var flow = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown,
                 WrapContents = false, AutoScroll = true, Padding = new Padding(16) };
             flow.Controls.Add(new Label { AutoSize = true, MaximumSize = new Size(500,0),
-                Text = "Codex：蓝色工作 / 橙色等待 / 翠绿呼吸完成\r\nClaude Code：陶橙工作 / 琥珀呼吸等待 / 草绿渐亮完成\r\nCodex 结束提示 30 秒，Claude Code 120 秒，然后恢复默认动画。", Margin = new Padding(0,0,0,14) });
+                Text = "Codex：蓝色工作 / 橙色等待 / 翠绿呼吸完成\r\nClaude Code：陶橙工作 / 琥珀呼吸等待 / 草绿渐亮完成\r\nDeepSeek Harness：深蓝工作 / 金黄等待 / 青绿完成\r\nCodex 和 DeepSeek Harness 结束提示 30 秒，Claude Code 120 秒，然后恢复默认动画。", Margin = new Padding(0,0,0,14) });
             var codex = new CheckBox { Text = "接收 Codex 任务事件", AutoSize = true, Checked = linkCfg.Codex };
             codex.CheckedChanged += (s,e) => { linkCfg.Codex = codex.Checked; if (!codex.Checked) linkState.ClearClient("codex"); SaveLinks(); TickLinks(); };
             chkCodex = codex; flow.Controls.Add(codex);
             var claude = new CheckBox { Text = "接收 Claude Code 任务事件", AutoSize = true, Checked = linkCfg.Claude };
             claude.CheckedChanged += (s,e) => { linkCfg.Claude=claude.Checked; if(!claude.Checked)linkState.ClearClient("claude");SaveLinks();TickLinks(); };
             chkClaude = claude; flow.Controls.Add(claude);
+            var dsh = new CheckBox { Text = "接收 DeepSeek Harness 任务事件", AutoSize = true, Checked = linkCfg.Dsh };
+            dsh.CheckedChanged += (s,e) => { linkCfg.Dsh=dsh.Checked; if(!dsh.Checked)linkState.ClearClient("dsh");SaveLinks();TickLinks(); };
+            chkDsh = dsh; flow.Controls.Add(dsh);
             var signal = new CheckBox { Text = "同步到 SignalRGB 灯光", AutoSize = true, Checked = linkCfg.Signal };
             signal.CheckedChanged += (s,e) => { linkCfg.Signal = signal.Checked; signalApplied = ""; SaveLinks(); TickLinks(); };
             chkSignal = signal; flow.Controls.Add(signal);
@@ -129,9 +133,9 @@ namespace GpuLcd {
                             var ev = new JavaScriptSerializer().Deserialize<LinkEvent>(line);
                             if (ev == null || ev.session_id == null || ev.session_id.Length > 200) continue;
                             BeginInvoke(new Action(() => {
-                                if (ev.client=="claude" ? linkCfg.Claude : linkCfg.Codex) {
+                                if (ev.client=="claude" ? linkCfg.Claude : ev.client=="dsh" ? linkCfg.Dsh : linkCfg.Codex) {
                                     receivedHookEvents++;lastHookEvent=ev.client+"/"+ev.hook_event_name;
-                                    if(ev.client!="claude" && !completions.Track(ev)) {
+                                    if(ev.client=="codex" && !completions.Track(ev)) {
                                         if(ev.hook_event_name=="UserPromptSubmit")Log("未纳入屏幕联动：Codex 会话缺少可跟踪的记录路径 session="+ev.session_id);
                                         return;
                                     }
@@ -147,6 +151,11 @@ namespace GpuLcd {
             });
             th.IsBackground=true; th.Start();
         }
+        // 客户端显示名与动画前缀：claude → cc*.savi，codex → cx*.savi，DeepSeek Harness → ds*.savi。
+        static string ClientLabel(string client) {
+            return client == "claude" ? "Claude Code" : client == "dsh" ? "DeepSeek Harness" : "Codex";
+        }
+        static string ClientPrefix(string client) { return client == "claude" ? "cc" : client == "dsh" ? "ds" : "cx"; }
         void TickLinks() {
             if(linkCfg.Codex && !completionBusy) {
                 completionBusy=true;
@@ -167,13 +176,13 @@ namespace GpuLcd {
             if (state!=linkShown) { Log("联动状态：" + text); linkShown=state; }
             if (!linkCfg.NightMode && !widgetOwnsScreen && !uploading && (state!=linkApplied || client!=linkAppliedClient && state!="idle") && (now-lastLcdTry).TotalSeconds>=2) {
                 lastLcdTry=now;
-                string movie=(client=="claude" ? "cc" : "cx") + (state=="working" ? "work.savi" : state=="waiting" ? "ask.savi" : "done.savi");
+                string movie=ClientPrefix(client) + (state=="working" ? "work.savi" : state=="waiting" ? "ask.savi" : "done.savi");
                 string result;
                 try { result=File.Exists(StorageOps.Flag) ? "ERR 屏幕处于存储维护模式" : !connected ? "ERR 屏幕未连接" : state=="idle" ? HandleCommand("revert") : PlayExternal(movie,1800); }
                 catch(Exception ex) { result="ERR "+ex.Message; }
                 if(result.StartsWith("OK")) { linkApplied=state; linkAppliedClient=client; }
-                linkStatus.Text="小屏幕："+(state=="idle" ? "" : client=="claude" ? "Claude Code / " : "Codex / ")+text+"　"+result;
-            } else if (state==linkApplied) linkStatus.Text="小屏幕："+(state=="idle" ? "" : client=="claude" ? "Claude Code / " : "Codex / ")+text;
+                linkStatus.Text="小屏幕："+(state=="idle" ? "" : ClientLabel(client)+" / ")+text+"　"+result;
+            } else if (state==linkApplied) linkStatus.Text="小屏幕："+(state=="idle" ? "" : ClientLabel(client)+" / ")+text;
             TickDotMatrix(state, client, now);
             sharedState=state; signalOn=linkCfg.Signal;
             if(!signalOn && signalBridge!=null){var old=signalBridge;signalBridge=null;old.Dispose();}

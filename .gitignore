@@ -23,6 +23,7 @@ dist/
 .nuxt/
 .output/
 lib/
+!dsh-plugin/lib/
 release/
 *.dll
 *.zip

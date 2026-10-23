@@ -59,6 +59,14 @@ namespace GpuLcd {
             Equal("idle", DotMatrixScene.Key("bogus", "codex", false), "unknown state is idle");
             Equal("working/claude", DotMatrixScene.Key("working", "claude", false), "claude key");
             Equal("done/codex", DotMatrixScene.Key("done", "asst", false), "other clients count as codex");
+            Equal("working/dsh", DotMatrixScene.Key("working", "dsh", false), "deepseek harness key");
+            Equal("#4D6BFE", DotMatrixScene.For("working", "dsh", false)["color"], "deepseek working blue");
+            Equal("#FF9F45", DotMatrixScene.For("waiting", "dsh", false)["color"], "deepseek waiting amber");
+            Equal("#2ED3B7", DotMatrixScene.For("done", "dsh", false)["color"], "deepseek done teal");
+            foreach (var state in new[] { "working", "waiting", "done" })
+                True(Json(DotMatrixScene.For(state, "dsh", false)) != Json(DotMatrixScene.For(state, "codex", false))
+                    && Json(DotMatrixScene.For(state, "dsh", false)) != Json(DotMatrixScene.For(state, "claude", false)),
+                    "deepseek differs from both assistants when " + state);
 
             // Scenes: JSON the panel's validator accepts (no nulls).
             Equal("{\"kind\":\"pixels\",\"frames\":[[]],\"palette\":{}}", Json(DotMatrixScene.For("working", "claude", true)), "night blanks the panel");
@@ -119,6 +127,8 @@ namespace GpuLcd {
             True(DotMatrixScene.Matches(claudeWorking, S("{\"kind\":\"status\",\"status\":\"working\",\"color\":\"d97757\"}")), "colour case and # do not matter");
             True(!DotMatrixScene.Matches(claudeWorking, S("{\"kind\":\"status\",\"status\":\"thinking\"}")), "another sender's status");
             True(!DotMatrixScene.Matches(claudeWorking, S(Json(DotMatrixScene.For("working", "codex", false)))), "other client");
+            True(DotMatrixScene.Matches(DotMatrixScene.For("done", "dsh", false), S(Json(DotMatrixScene.For("done", "dsh", false)))), "deepseek scene matches itself");
+            True(!DotMatrixScene.Matches(DotMatrixScene.For("done", "dsh", false), S(Json(DotMatrixScene.For("done", "codex", false)))), "deepseek is not codex");
             True(!DotMatrixScene.Matches(claudeWorking, S("{\"kind\":\"status\",\"status\":\"working\",\"label\":\"Claude\",\"color\":\"#D97757\"}")), "a label we did not send");
             True(!DotMatrixScene.Matches(claudeWorking, S("{\"kind\":\"mood\",\"mood\":\"happy\"}")), "an agent's mood");
             True(!DotMatrixScene.Matches(claudeWorking, null), "nothing shown (app restarted)");

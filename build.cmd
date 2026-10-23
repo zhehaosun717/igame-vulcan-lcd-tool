@@ -5,7 +5,7 @@ set CSC="C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current
 set IG=C:\Program Files\iGameCenter
 if exist "%~dp0vendor\iGameCenter\iGameAPI.LCD.CSharp.dll" set IG=%~dp0vendor\iGameCenter
 if exist "%~dp0ui-dist.zip" del "%~dp0ui-dist.zip"
-if exist "%~dp0ui\dist\index.html" tar -a -c -f "%~dp0ui-dist.zip" -C "%~dp0ui\dist" .
+if exist "%~dp0ui\dist\index.html" "%SystemRoot%\System32\tar.exe" -a -c -f "%~dp0ui-dist.zip" -C "%~dp0ui\dist" .
 set RES=
 if exist "%~dp0ui-dist.zip" set RES=/resource:"%~dp0ui-dist.zip",GpuLcd.ui-dist.zip
 if "%RES%"=="" echo WARNING: ui\dist not found - building WITHOUT the embedded new UI

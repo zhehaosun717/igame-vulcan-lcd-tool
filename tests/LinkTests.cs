@@ -8,6 +8,18 @@ namespace GpuLcd {
   static int Main(){
    try{Run();return 0;}catch(Exception ex){Console.WriteLine("FAIL: "+ex.Message);return 1;}
   }
+  // DeepSeek Harness: own client name, own state, does not disturb the Codex/Claude cases above.
+  static void DeepSeek(){
+   var t=new DateTime(2026,10,7);
+// DeepSeek Harness reports under its own client name and stays separate from Codex with the same session id.
+   var ds=new LinkState();var de=E("UserPromptSubmit","same");de.client="dsh";ds.Apply(de,t);
+   Equal("working",ds.Current(t));Equal("dsh",ds.CurrentClient);
+   var dsStop=E("Stop","same");dsStop.client="dsh";ds.Apply(dsStop,t.AddSeconds(1));
+   Equal("done",ds.Current(t.AddSeconds(1)));
+   Equal("done",ds.Current(t.AddSeconds(29)));Equal("idle",ds.Current(t.AddSeconds(31)));
+   var dsAsk=E("PermissionRequest","b");dsAsk.client="dsh";ds.Apply(dsAsk,t.AddSeconds(60));
+   Equal("waiting",ds.Current(t.AddSeconds(60)));Equal("dsh",ds.CurrentClient);
+  }
   static void Run(){
    var s=new LinkState();var t=new DateTime(2026,10,7);
    Equal("idle",s.Current(t));
@@ -25,6 +37,7 @@ namespace GpuLcd {
    s.Apply(E("Interrupt","a","2"),t.AddSeconds(43));Equal("idle",s.Current(t.AddSeconds(43)));
    s.Apply(E("UserPromptSubmit","c"),t);Equal("idle",s.Current(t.AddMinutes(31)));
    s.Apply(E("UserPromptSubmit","d"),t);s.Apply(E("SessionEnd","d"),t);Equal("idle",s.Current(t));
+   DeepSeek();
    // Claude's notifications: prompts wait for the user, the idle reminder ends the turn, others are ignored.
    Equal("PermissionRequest",LinkState.ClaudeEventName("Notification",""));
    Equal("PermissionRequest",LinkState.ClaudeEventName("Notification","permission_prompt"));

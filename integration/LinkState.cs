@@ -46,7 +46,7 @@ namespace GpuLcd {
         }
         public void Apply(LinkEvent e, DateTime now) {
             if (string.IsNullOrEmpty(e.session_id)) return;
-            string client = e.client == "claude" ? "claude" : "codex";
+            string client = e.client == "claude" ? "claude" : e.client == "dsh" ? "dsh" : "codex";
             string key = client + ":" + e.session_id;
             Entry p;
             sessions.TryGetValue(key, out p);

@@ -1,6 +1,6 @@
 # igame-vulcan-lcd-tool
 
-Windows 上的七彩虹 iGame 火神 LCD 3.0 侧屏控制工具：C# / WinForms 宿主 + Vue 3 / TypeScript / WebView2 界面。1.0.2 安装版和便携版已附带 LCD 厂商库及转换工具，无需另装 iGameCenter。源码开发环境仍可回退到本机安装的厂商库。
+Windows 上的七彩虹 iGame 火神 LCD 3.0 侧屏控制工具：C# / WinForms 宿主 + Vue 3 / TypeScript / WebView2 界面。1.0.3 安装版和便携版已附带 LCD 厂商库及转换工具，无需另装 iGameCenter。源码开发环境仍可回退到本机安装的厂商库。
 
 本次同步的是当前自用版本，包含实际使用的 Codex、Claude Code 和 SignalRGB 联动；部分脚本仍按本机安装环境编写，并非通用的一键安装发行版。
 
@@ -8,8 +8,8 @@ Windows 上的七彩虹 iGame 火神 LCD 3.0 侧屏控制工具：C# / WinForms 
 
 在本私有仓库的 [Releases](https://github.com/zhehaosun717/igame-vulcan-lcd-tool/releases/latest) 下载：
 
-- `GpuLcd-Setup-1.0.2.exe`：每用户安装版。
-- `GpuLcd-1.0.2-portable.zip`：完整解压后运行其中的 `GpuLcd/GpuLcd.exe`。
+- `GpuLcd-Setup-1.0.3.exe`：每用户安装版。
+- `GpuLcd-1.0.3-portable.zip`：完整解压后运行其中的 `GpuLcd/GpuLcd.exe`。
 - `SHA256SUMS.txt`：安装包与便携包的校验值。
 
 保留 `vendor/` 目录和 exe 旁的 WebView2 DLL。包内包括 LCD / NVAPI 库、SAVI / FFmpeg、私有 x86 VC90 CRT，以及助手钩子和灯效模板。仍需 Windows x64 / .NET Framework 和兼容的显卡 USB 连接；WebView2 Runtime 未捆绑，缺少时尝试回退经典界面。SignalRGB 联动需另装 SignalRGB。
@@ -62,7 +62,9 @@ cd ..
 
 保持工具运行，在联动页面启用对应客户端。将 `integration/CodexLCD.template.html` 作为本地 SignalRGB 灯效导入并选中。灯效通过本机事件接口接收状态，工具通过 SignalRGB 自带 MCP 读取确认。
 
-`integration/Hook.cs` 编译为 `GpuLcdHook.exe`。参考 `integration/hooks.example.json` 配置 Claude Code；Codex 示例为 `integration/codex-hooks.example.json`。替换示例安装路径，并将事件项合并到已有配置，避免覆盖其他钩子。动画上传后分别命名为 `ccwork/ccask/ccdone.savi` 和 `cxwork/cxask/cxdone.savi`。
+`integration/Hook.cs` 编译为 `GpuLcdHook.exe`。参考 `integration/hooks.example.json` 配置 Claude Code；Codex 示例为 `integration/codex-hooks.example.json`。替换示例安装路径，并将事件项合并到已有配置，避免覆盖其他钩子。动画上传后分别命名为 `ccwork/ccask/ccdone.savi`、`cxwork/cxask/cxdone.savi` 和 `dswork/dsask/dsdone.savi`。
+
+DeepSeek Harness：不是钩子，而是一个 DSH 插件（`dsh-plugin/` 目录，随安装包和便携包附带）。它把 DSH 的会话状态翻译成同一套事件写进事件管道，client 为 `dsh`，所以不用另配钩子。安装见 `dsh-plugin/README.md`，屏上用 `dswork/dsask/dsdone.savi` 三张动画，配色是深蓝 / 金黄 / 青绿。有了它，Claude Code、Codex、DeepSeek Harness 三边可以同时驱动同一块屏幕，谁在忙就显示谁。
 
 点阵屏：联动页勾选「同步到 Dot Matrix Studio 点阵屏」（默认开）。工具从 `%APPDATA%\Dot Matrix Studio\agent-api.json` 读取本机 API 端口和令牌，状态变化时 POST 到 `/api/scene?source=hook`，每 15 秒核对一次屏上画面，Dot Matrix Studio 重启后自动补发；只走 127.0.0.1，不碰显卡屏串口。用了这项同步后，Dot Matrix Studio 自带的状态钩子就不要再挂在助手配置里，否则两边会抢屏。
 

@@ -1,0 +1,13 @@
+{
+  "id": "dsh-external/dsh-gpulcd-status",
+  "version": "0.1.0",
+  "main": "./lib/index.js",
+  "description": "DeepSeek Harness 工作状态 → GpuLcd（显卡屏 / SignalRGB / 点阵屏）",
+  "engines": {
+    "dsh": ">=0.1.7-0"
+  },
+  "contributes": {
+    "tools": [],
+    "skills": []
+  }
+}

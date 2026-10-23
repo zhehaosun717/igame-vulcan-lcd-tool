@@ -8,7 +8,7 @@
 param([switch]$SkipUi)
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
-$ver = '1.0.2'
+$ver = '1.0.3'
 $csc = 'C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\Roslyn\csc.exe'
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
@@ -49,6 +49,12 @@ New-Item -ItemType Directory -Path $integration -Force | Out-Null
 & $csc /nologo /target:exe /platform:x64 /optimize+ "/out:$integration\GpuLcdHook.exe" /r:System.Web.Extensions.dll "$root\integration\Hook.cs" "$root\integration\LinkState.cs"; Check 'GpuLcdHook'
 foreach ($name in 'CodexLCD.template.html','hooks.example.json','codex-hooks.example.json') { Copy-Item -LiteralPath (Join-Path $root "integration\$name") -Destination $integration }
 Copy-Item -LiteralPath (Join-Path $root 'anims') -Destination $stage -Recurse
+# DeepSeek Harness 插件：装 DSH 时把 dsh-plugin 目录复制进 profile（见 dsh-plugin/README.md）
+$dshRoot = $PSScriptRoot
+$dshStage = Join-Path $PSScriptRoot 'release\stage\GpuLcd\dsh-plugin'
+New-Item -ItemType Directory -Path $dshStage -Force | Out-Null
+Copy-Item -Path (Join-Path $PSScriptRoot 'dsh-plugin\*') -Destination $dshStage -Recurse -Force
+if (-not (Test-Path (Join-Path $dshStage 'lib\index.js'))) { throw 'dsh-plugin was not staged' }
 Copy-Item -LiteralPath (Join-Path $root 'integration\anims') -Destination $integration -Recurse
 $licenses = Join-Path $stage 'licenses'
 New-Item -ItemType Directory -Path $licenses -Force | Out-Null

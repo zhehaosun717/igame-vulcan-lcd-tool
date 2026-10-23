@@ -12,12 +12,16 @@ namespace GpuLcd {
         static readonly Dictionary<string, string> CodexColors = new Dictionary<string, string> {
             { "working", "#3C82FF" }, { "waiting", "#B478FF" }, { "done", "#3CDCDC" }
         };
+        // DeepSeek Harness: deep blue working, amber waiting, teal done. Distinct from both warm Claude and cool Codex.
+        static readonly Dictionary<string, string> DshColors = new Dictionary<string, string> {
+            { "working", "#4D6BFE" }, { "waiting", "#FF9F45" }, { "done", "#2ED3B7" }
+        };
 
         // Identifies what is on the panel, so a scene is only sent when it changes.
         public static string Key(string state, string client, bool night) {
             if (night) return "off";
             if (!IsActive(state)) return "idle";
-            return state + "/" + (client == "claude" ? "claude" : "codex");
+            return state + "/" + ClientKey(client);
         }
 
         // The JSON body for POST /api/scene. Optional fields are left out (the panel rejects nulls).
@@ -26,7 +30,7 @@ namespace GpuLcd {
                 { "kind", "pixels" }, { "frames", new[] { new string[0] } }, { "palette", new Dictionary<string, string>() }
             };
             if (!IsActive(state)) return new Dictionary<string, object> { { "kind", "status" }, { "status", "idle" } };
-            var colors = client == "claude" ? ClaudeColors : CodexColors;
+            var colors = client == "claude" ? ClaudeColors : client == "dsh" ? DshColors : CodexColors;
             return new Dictionary<string, object> { { "kind", "status" }, { "status", state }, { "color", colors[state] } };
         }
 
@@ -50,6 +54,7 @@ namespace GpuLcd {
             return list != null && list.Length == 1 && list[0] is object[] && ((object[])list[0]).Length == 0;
         }
 
+        static string ClientKey(string client) { return client == "claude" ? "claude" : client == "dsh" ? "dsh" : "codex"; }
         static bool IsActive(string state) { return state == "working" || state == "waiting" || state == "done"; }
     }
 }

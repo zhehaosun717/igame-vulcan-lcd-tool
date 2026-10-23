@@ -1,4 +1,4 @@
-# 开发说明（GpuLcd 1.0.2）
+# 开发说明（GpuLcd 1.0.3）
 
 ## 结构
 - **C# 宿主**（WinForms，.NET Framework，`csc` 编译）：唯一允许写串口的一方。`GpuLcd.cs` 主逻辑；`WebUi.cs` 是新界面的桥；`Integrations.cs` / `Widgets.cs` / `NightMode.cs` 等是各功能。
