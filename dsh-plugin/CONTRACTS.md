@@ -1,10 +1,12 @@
 # Contract audit and isolated acceptance evidence
 
-## Release metadata: 0.1.1 + GpuLcd 1.0.5
+## Release metadata: 0.1.2 + GpuLcd 1.0.6
 
-The historical audit/rework records below retain their original version/status statements. Current release metadata is plugin **0.1.1** in package.json and dsh.plugin.json, with Node **>=24** and DSH floor **>=0.2.1-rc.2**. Only DSH **0.2.1-rc.2** was actually audited; the old >=0.1.7-0 range is not supported evidence, and future DSH versions still require contract revalidation. Plugin 0.1.0 is no longer recommended because it truncates middleware next.
+The historical audit/rework records below retain their original version/status statements. Current release metadata is plugin **0.1.2** in package.json and dsh.plugin.json, with Node **>=24** and DSH floor **>=0.2.1-rc.2**. Only DSH **0.2.1-rc.2** was actually audited; the old >=0.1.7-0 range is not supported evidence, and future DSH versions still require contract revalidation. Plugin 0.1.0 is no longer recommended because it truncates middleware next.
 
-Plugin 0.1.1 requires **GpuLcd >=1.0.5** for atomic waiting recovery; GpuLcd 1.0.4 ignores the state extension and cannot provide that guarantee. Release preparation changes metadata/documentation/packaging only; accepted production src/lib and receiver hashes remain frozen. The standalone archive has top-level dsh-gpulcd-status, LICENSE and CONTRACTS, and contains the same plugin bytes as both host packages. These are the 0.1.1 release artifacts, validated offline only. Old version attachments remain unchanged; no live plugin installation/activation, app restart, or physical rendering validation is claimed. The following historical isolated-typecheck command installs TEMP dependencies and is not rerun during dependency-free release preparation.
+Plugin 0.1.2 requires **GpuLcd >=1.0.5** for atomic waiting recovery; GpuLcd 1.0.4 ignores the state extension and cannot provide that guarantee. Release preparation changes metadata/documentation/packaging only; accepted production src/lib and receiver hashes remain frozen. The standalone archive has top-level dsh-gpulcd-status, LICENSE and CONTRACTS, and contains the same plugin bytes as both host packages. These are the 0.1.2 release artifacts, validated offline only. Old version attachments remain unchanged; no live plugin installation/activation, app restart, or physical rendering validation is claimed. The following historical isolated-typecheck command installs TEMP dependencies and is not rerun during dependency-free release preparation.
+
+Plugin 0.1.1 was packaged with an inject declaration this Cordis version does not support ({ optional: [...] } is read as a service named "optional"), so it never mounted. 0.1.2 declares inject as ['agents'] and adds a regression assertion; live mount was verified in an isolated headless profile: the plugin activated and emitted UserPromptSubmit/PreToolUse/SessionEnd to a test pipe.
 
 ## Scope
 

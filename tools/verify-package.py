@@ -12,8 +12,8 @@ import tempfile
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = '1.0.5'
-PLUGIN_VERSION = '0.1.1'
+VERSION = '1.0.6'
+PLUGIN_VERSION = '0.1.2'
 DSH_FLOOR = '>=0.2.1-rc.2'
 CSC = Path(r'C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\Roslyn\csc.exe')
 PLUGIN_FILES = {'package.json', 'dsh.plugin.json', 'cordis.patch.yml', 'README.md',

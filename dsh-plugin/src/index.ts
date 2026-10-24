@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { createBridge, type Bridge, type HookEventInput } from './bridge.js'
 
 export const name = 'dsh-gpulcd-status'
-export const inject = { optional: ['agents'] }
+export const inject = ['agents']
 
 /** Explicit projections of audited public contracts, not ambient Cordis shims.
  * Additional fields are deliberately never inspected or sent. See CONTRACTS.md.

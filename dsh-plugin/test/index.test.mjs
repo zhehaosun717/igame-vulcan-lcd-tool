@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { getEventListeners } from 'node:events';
 import { setTimeout as delay } from 'node:timers/promises';
-import { attach, createTurnTracker, sessionIdOf } from '../lib/index.js';
+import { attach, createTurnTracker, sessionIdOf, inject } from '../lib/index.js';
 const agent = (id = 's', status = 'running') => ({id, status, session:{id}});
 const deferred = () => Promise.withResolvers();
 function fixture(t, agents = [], send) {
@@ -16,6 +16,11 @@ function fixture(t, agents = [], send) {
  const event = (a,type,turn=1,kind='completed') => emit('session/event',a.session,{type,data:{turn,reason:{kind}}});
  return {events,listeners,emit,status,event,close,bridgeClosed:()=>bridgeClosed,latest:()=>events.at(-1)?.hook_event_name};
 }
+
+test('Cordis injection declares the core agents service as a supported array',()=>{
+ assert.ok(Array.isArray(inject), 'Cordis 4.0.5 treats object keys as service names; optional is not supported');
+ assert.deepEqual(inject,['agents']);
+});
 
 test('tracker reads never create; epoch is unique across reloads',()=>{
  const a=createTurnTracker(),b=createTurnTracker();assert.equal(a.current('s'),undefined);

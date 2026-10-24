@@ -1,6 +1,6 @@
 # igame-vulcan-lcd-tool
 
-Windows 上的七彩虹 iGame 火神 LCD 3.0 侧屏控制工具：C# / WinForms 宿主 + Vue 3 / TypeScript / WebView2 界面。1.0.5 安装版和便携版附带 LCD 厂商库及转换工具，无需另装 iGameCenter。源码开发环境仍可回退到本机安装的厂商库。
+Windows 上的七彩虹 iGame 火神 LCD 3.0 侧屏控制工具：C# / WinForms 宿主 + Vue 3 / TypeScript / WebView2 界面。1.0.6 安装版和便携版附带 LCD 厂商库及转换工具，无需另装 iGameCenter。源码开发环境仍可回退到本机安装的厂商库。
 
 本目录为 GpuLcd 1.0.5 + DSH 插件 0.1.1 发布产物，包含 Codex、Claude Code、DeepSeek Harness 和 SignalRGB 联动修复。仅完成离线验证；不表示桌面已安装、生效或物理上屏。旧版本附件保持不变，不能视为已含本次修复。
 
@@ -8,8 +8,8 @@ Windows 上的七彩虹 iGame 火神 LCD 3.0 侧屏控制工具：C# / WinForms 
 
 在本私有仓库的 [Releases](https://github.com/zhehaosun717/igame-vulcan-lcd-tool/releases/latest) 下载：
 
-- `GpuLcd-Setup-1.0.5.exe`：每用户安装版。
-- `GpuLcd-1.0.5-portable.zip`：完整解压后运行其中的 `GpuLcd/GpuLcd.exe`。
+- `GpuLcd-Setup-1.0.6.exe`：每用户安装版。
+- `GpuLcd-1.0.6-portable.zip`：完整解压后运行其中的 `GpuLcd/GpuLcd.exe`。
 - `dsh-gpulcd-status-0.1.1.zip`：独立插件，包含运行库、manifest、bundle patch、说明、契约记录与许可证。
 - `SHA256SUMS.txt`：上述三个最终文件的 SHA-256。
 

@@ -8,8 +8,8 @@
 param()
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
-$ver = '1.0.5'
-$pluginVer = '0.1.1'
+$ver = '1.0.6'
+$pluginVer = '0.1.2'
 $csc = 'C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\Roslyn\csc.exe'
 Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
